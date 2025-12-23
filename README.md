@@ -20,6 +20,28 @@ Build with Google Antigravity.
 - **Timestamp Accuracy**: Advanced backend logic that calculates exact trade durations from raw entry/exit timestamps, ensuring precision even with complex exports.
 - **User-Friendly Upload**: Drag-and-drop or click-to-upload CSV mapping that handles varied column names (Fees, Commission, Net PnL, etc.).
 
+## Screenshots
+
+<p align="center">
+    <img src="static/stats_grid.png" alt="Stats grid" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
+    <br><em>Key performance indicators grid</em>
+</p>
+
+<p align="center">
+    <img src="static/charts.png" alt="Charts" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
+    <br><em>Equity curve and PnL charts</em>
+</p>
+
+<p align="center">
+    <img src="static/calendar.png" alt="Calendar heatmap" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
+    <br><em>Calendar heatmap with weekly rollups</em>
+</p>
+
+<p align="center">
+    <img src="static/trade_log.png" alt="Trades table" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
+    <br><em>Detailed trades table and filters</em>
+</p>
+
 ## Prerequisites
 - **Python**: 3.8+
 - **Node.js**: v20.19+ or v22+ (Recommended for Vite v7)
