@@ -3,3 +3,4 @@
 /.backend/*.pyc
 /frontend/node_modules/
 /frontend/build/
+/tests/__pycache__/
