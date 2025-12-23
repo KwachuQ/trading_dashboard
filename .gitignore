@@ -6,3 +6,5 @@
 /tests/__pycache__/
 backend/core/__pycache__/
 backend/core/*.pyc/backend/__pycache__/
+*.pyc
+**/__pycache__/
