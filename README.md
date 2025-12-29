@@ -2,7 +2,7 @@
 
 A high-performance web dashboard for analyzing trading performance with precision. Built with a FastAPI backend (leveraging Polars for rapid data processing) and a modern React frontend with Tailwind CSS and Recharts. It is integrated to read .csv files exported from TopStepX trading platform.
 
-Build with Google Antigravity.
+Built with Google Antigravity.
 
 ## Core Features
 
