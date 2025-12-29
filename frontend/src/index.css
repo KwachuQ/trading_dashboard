@@ -51,6 +51,8 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  font-size: 1.15rem;
+  /* ~20% larger than default */
 }
 
 /* Layout */
@@ -116,7 +118,7 @@ h4 {
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
-  font-size: 0.95rem;
+  font-size: 1rem;
   box-shadow: 0 4px 12px var(--accent-glow);
 }
 
@@ -130,28 +132,76 @@ h4 {
   overflow-x: auto;
 }
 
+:root {
+  /* ... previous root items ... */
+  --table-font-size: 1.3rem;
+  --table-header-size: 1.1rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--table-font-size) !important;
 }
 
 th {
   text-align: left;
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   color: var(--text-secondary);
-  font-weight: 500;
-  border-bottom: 1px solid var(--card-border);
+  font-weight: 600;
+  font-size: var(--table-header-size);
+  border-bottom: 2px solid var(--card-border);
 }
 
 td {
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
+  line-height: 1.5;
 }
 
 tr:hover td {
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* Color Picker Popover */
+.color-picker-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #0f172a;
+  /* Solid darker background for contrast */
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  /* Semi-transparent accent border */
+  border-radius: 12px;
+  padding: 16px;
+  display: block;
+  z-index: 100;
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.9);
+  margin-top: 12px;
+  min-width: 240px;
+  backdrop-filter: blur(8px);
+}
+
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+.color-swatch:hover {
+  transform: scale(1.2) translateY(-4px);
+  border-color: white;
+  box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.color-swatch:active {
+  transform: scale(0.95);
 }
 
 /* Utilities */
@@ -243,4 +293,40 @@ tr:hover td {
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   stroke: var(--card-border);
+}
+
+/* Animations */
+@keyframes pulse-highlight {
+  0% {
+    background-color: rgba(99, 102, 241, 0.1);
+  }
+
+  50% {
+    background-color: rgba(99, 102, 241, 0.2);
+  }
+
+  100% {
+    background-color: rgba(99, 102, 241, 0.1);
+  }
+}
+
+.merge-highlight {
+  animation: pulse-highlight 2s infinite ease-in-out;
+  border-left: 4px solid var(--accent) !important;
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: var(--transition);
+}
+
+.tag-badge:hover {
+  filter: brightness(1.1);
 }

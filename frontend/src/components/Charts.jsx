@@ -37,7 +37,7 @@ const Charts = ({ chartsData }) => {
     return (
         <div className="flex flex-col gap-5">
             {/* Row 1: Equity Curve & Net Daily PnL */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 h-[340px]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 h-[450px]">
                 {/* Equity Curve */}
                 <div className="card relative !p-0 overflow-hidden flex flex-col">
                     <div className="p-4 border-b border-white/5 bg-white/2">
@@ -80,7 +80,7 @@ const Charts = ({ chartsData }) => {
             </div>
 
             {/* Row 2: Duration Analysis & Win Rate Analysis */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 h-[400px]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 h-[450px]">
                 {/* Trade Duration Analysis (Trade Count) */}
                 <div className="card relative !p-0 overflow-hidden flex flex-col">
                     <div className="p-4 border-b border-white/5 bg-white/2 flex justify-between items-center">
@@ -109,7 +109,7 @@ const Charts = ({ chartsData }) => {
                     </div>
                     <div className="flex-grow w-full py-4 pr-5 overflow-hidden relative">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={duration_distribution} layout="vertical" margin={{ top: 10, right: 40, left: 85, bottom: 20 }}>
+                            <BarChart data={duration_distribution} layout="vertical" margin={{ top: 10, right: 60, left: 85, bottom: 20 }}>
                                 <XAxis type="number" domain={[0, 100]} stroke="#64748b" tick={{ fontSize: 9 }} tickFormatter={(val) => `${val}%`} />
                                 <YAxis type="category" dataKey="range" stroke="#64748b" tick={{ fontSize: 9 }} width={100} />
                                 <Tooltip cursor={{ fill: 'white', opacity: 0.05 }} content={<CustomTooltip />} />

@@ -9,172 +9,191 @@ def process_csv(file: BinaryIO) -> Dict[str, Any]:
         
         # Try different encodings
         try:
-            df = pl.read_csv(io.BytesIO(content), try_parse_dates=True)
+            df = pl.read_csv(io.BytesIO(content), try_parse_dates=False)
         except:
             # Fallback for common encoding issues
-            df = pl.read_csv(io.BytesIO(content), encoding='latin-1', try_parse_dates=True)
+            df = pl.read_csv(io.BytesIO(content), encoding='latin-1', try_parse_dates=False)
 
-        # 1. Normalize Columns (Best Effort Mapping)
-        # We need standard columns: Date, Symbol, PnL, Duration (optional), Direction (optional)
-        # Map common names to standardized names
-        # Logic: Look for specific keywords in columns and rename
-        column_map = {}
+        # 1. Normalize Columns
         cols_lower = {c.lower(): c for c in df.columns}
         
-        # Map PnL
+        # Identify standard indices
         pnl_candidates = ['pnl', 'profit', 'net profit', 'net_profit', 'pl', 'amount']
-        for c in pnl_candidates:
-            if c in cols_lower:
-                column_map[cols_lower[c]] = 'PnL'
-                break
-        
-        # Map Date (Exit Date usually for PnL attribution)
         date_candidates = ['date', 'exit date', 'close date', 'time', 'close time', 'exitedat', 'trade day', 'tradeday', 'enteredat']
-        for c in date_candidates:
-            if c in cols_lower:
-                column_map[cols_lower[c]] = 'Date'
-                break
-        
-        # Map Symbol
         symbol_candidates = ['symbol', 'ticker', 'instrument', 'asset', 'contractname', 'contract']
-        for c in symbol_candidates:
-            if c in cols_lower:
-                column_map[cols_lower[c]] = 'Symbol'
-                break
-                
-        # Map Duration (if exists)
-        dur_candidates = ['duration', 'holding time', 'tradeduration', 'trade duration']
-        for c in dur_candidates:
-            if c in cols_lower:
-                column_map[cols_lower[c]] = 'Duration'
-                break
-                
-        # Map Direction (Long/Short)
+        dur_candidates = ['duration', 'holding time', 'tradeduration', 'trade duration', 'trade_duration']
         dir_candidates = ['direction', 'type', 'side']
-        for c in dir_candidates:
-            if c in cols_lower:
-                column_map[cols_lower[c]] = 'Direction'
-                break
-        
-        # Map Fees
         fees_candidates = ['fees', 'fee', 'commission', 'commissions', 'cost']
-        for c in fees_candidates:
-            if c in cols_lower:
-                column_map[cols_lower[c]] = 'Fees'
-                break
-      # Identify Entry/Exit columns for Duration calculation before renaming/casting
+        size_candidates = ['size', 'quantity', 'qty', 'volume', 'amount_pos', 'contracts', 'shares']
         entered_candidates = ['enteredat', 'entered at', 'entry time', 'open time', 'formatted_entry_time']
         exited_candidates = ['exitedat', 'exited at', 'exit time', 'close time', 'formatted_exit_time']
-        
-        entered_col_raw = None
-        exited_col_raw = None
-        
-        for c in entered_candidates:
-            if c in cols_lower:
-                entered_col_raw = cols_lower[c]
-                break
-                
-        for c in exited_candidates:
-            if c in cols_lower:
-                exited_col_raw = cols_lower[c]
-                break
 
-        # Preserve raw columns for duration calc
-        if entered_col_raw:
-            df = df.with_columns(pl.col(entered_col_raw).alias('_EnteredRaw'))
-        if exited_col_raw:
-            df = df.with_columns(pl.col(exited_col_raw).alias('_ExitedRaw'))
-
-        # Rename columns based on map
-        if column_map:
-            df = df.rename(column_map)
+        found_cols = {}
         
+        def find_best(candidates, exclude_cols=None):
+            for c in candidates:
+                if c in cols_lower:
+                    actual = cols_lower[c]
+                    if not exclude_cols or actual not in exclude_cols:
+                        return actual
+            return None
+
+        # Priority mapping
+        pnl_col = find_best(pnl_candidates)
+        date_col = find_best(date_candidates)
+        symbol_col = find_best(symbol_candidates)
+        fees_col = find_best(fees_candidates)
+        size_col = find_best(size_candidates, exclude_cols=[pnl_col] if pnl_col else [])
+        duration_col = find_best(dur_candidates)
+        direction_col = find_best(dir_candidates)
+        entered_candidates = ['entered', 'entry date', 'entry_date', 'entry_time', 'open_time', 'open time', 'start_date', 'start date', 'entry', 'entrydate']
+        exited_candidates = ['exited', 'exit date', 'exit_date', 'exit_time', 'close_time', 'close time', 'end_date', 'end date', 'exit', 'exitdate']
+        strategy_candidates = ['strategy', 'strategy tag', 'strategy_tag', 'setup 2', 'tag 2', 'additional tag', 'type', 'additional_tag', 'additionaltag']
+
+        entry_date_col = find_best(entered_candidates)
+        exit_date_col = find_best(exited_candidates)
+        strategy_tag_col = find_best(strategy_candidates)
+
+        # Build transformations
+        transforms = []
+        if pnl_col: transforms.append(pl.col(pnl_col).alias('PnL'))
+        if date_col: transforms.append(pl.col(date_col).alias('Date'))
+        if symbol_col: transforms.append(pl.col(symbol_col).alias('Symbol'))
+        if fees_col: transforms.append(pl.col(fees_col).alias('Fees'))
+        if size_col: transforms.append(pl.col(size_col).alias('Size'))
+        if direction_col: transforms.append(pl.col(direction_col).alias('Direction'))
+        
+        # Preserve original string for EntryDate/ExitDate to keep time if available
+        # Strip timezone offset (e.g., +01:00) for cleaner display
+        if entry_date_col: 
+            transforms.append(pl.col(entry_date_col).cast(pl.Utf8).str.replace(r"\s*[\+\-]\d{2}:?\d{2}$", "").alias('EntryDate'))
+        if exit_date_col: 
+            transforms.append(pl.col(exit_date_col).cast(pl.Utf8).str.replace(r"\s*[\+\-]\d{2}:?\d{2}$", "").alias('ExitDate'))
+        if duration_col: transforms.append(pl.col(duration_col).alias('Duration_Raw'))
+        if strategy_tag_col: transforms.append(pl.col(strategy_tag_col).alias('Additional Tag'))
+
+        # Add temporary columns for calculation
+        if entry_date_col:
+            transforms.append(pl.col(entry_date_col).alias('_EnteredRaw'))
+        if exit_date_col:
+            transforms.append(pl.col(exit_date_col).alias('_ExitedRaw'))
+
+        df = df.with_columns(transforms)
+
         if 'PnL' not in df.columns or 'Date' not in df.columns:
-            # Fallback/Error if critical cols missing
              raise ValueError("CSV must contain at least 'Date' & 'Profit/PnL' columns.")
 
-        # Ensure types
-        # Handle formatting like "11/04/2025 16:47:10 +01:00"
-        # Strategy: Split by space to get date part, then parse
-        try:
-             # Try custom parsing for known format "MM/DD/YYYY ..."
-             df = df.with_columns(
-                 pl.col('Date').str.split(" ").list.get(0).str.strptime(pl.Date, "%m/%d/%Y", strict=False).alias('Date_Parsed')
-             )
-             # If successful (not all null), use it. if all null, fallback to standard cast
-             if df['Date_Parsed'].null_count() < len(df):
-                 df = df.with_columns(pl.col('Date_Parsed').alias('Date')).drop('Date_Parsed')
-             else:
-                 # Fallback to direct cast (e.g. if it was already YYYY-MM-DD)
-                 df = df.drop('Date_Parsed').with_columns(pl.col('Date').cast(pl.Date, strict=False))
-        except:
-             # Fallback
-             df = df.with_columns(pl.col('Date').cast(pl.Date, strict=False))
-
-        # Handle Fees column
-        if 'Fees' in df.columns:
-            df = df.with_columns([
-                pl.col('Fees').cast(pl.Float64, strict=False).fill_null(0.0)
-            ])
-        else:
-            df = df.with_columns(pl.lit(0.0).alias('Fees'))
-        
+        # Handle Date Parsing
+        # Common format: "MM/DD/YYYY ..." or "YYYY-MM-DD ..."
         df = df.with_columns([
-            pl.col('PnL').cast(pl.Float64, strict=False).fill_null(0.0)
-        ]).drop_nulls(['Date']) # Drop rows where Date is invalid/null
+            pl.col('Date').str.split(" ").list.get(0).str.strptime(pl.Date, "%m/%d/%Y", strict=False).alias('_Date_MDY'),
+            pl.col('Date').str.split(" ").list.get(0).str.strptime(pl.Date, "%Y-%m-%d", strict=False).alias('_Date_YMD'),
+        ])
         
-        # Handle Duration - Calculate from timestamps if available
+        # Handle Date Parsing
+        # Keep original 'Date' as string for display (preserving time)
+        # Create a parsed date column for internal grouping/filtering
+        df = df.with_columns([
+            pl.col('Date').str.split(" ").list.get(0).str.strptime(pl.Date, "%m/%d/%Y", strict=False).alias('_Date_MDY'),
+            pl.col('Date').str.split(" ").list.get(0).str.strptime(pl.Date, "%Y-%m-%d", strict=False).alias('_Date_YMD'),
+        ])
+        
+        df = df.with_columns(
+            pl.coalesce(['_Date_MDY', '_Date_YMD', 'Date']).cast(pl.Date, strict=False).alias('Date_Obj')
+        ).drop(['_Date_MDY', '_Date_YMD'])
+
+        # Ensure Date column itself is a string to prevent JSON stripping of time
+        # Strip timezone offset (e.g., +01:00) for cleaner display
+        df = df.with_columns(
+            pl.col('Date').cast(pl.Utf8).str.replace(r"\s*[\+\-]\d{2}:?\d{2}$", "").alias('Date')
+        )
+
+        # Drop rows where Date is invalid/null
+        df = df.drop_nulls(['Date'])
+
+        # Numeric Columns
+        df = df.with_columns([
+            pl.col('PnL').cast(pl.Float64, strict=False).fill_null(0.0),
+            pl.col('Fees').cast(pl.Float64, strict=False).fill_null(0.0) if 'Fees' in df.columns else pl.lit(0.0).alias('Fees'),
+            pl.col('Size').cast(pl.Float64, strict=False).fill_null(0.0) if 'Size' in df.columns else pl.lit(0.0).alias('Size'),
+        ])
+
+        # Handle Duration Calculation
+        # Format example: "10/01/2025 14:47:55 +01:00"
+        # We need to parse this for entered/exited time to get seconds
+        # Handle Duration Calculation
         if '_EnteredRaw' in df.columns and '_ExitedRaw' in df.columns:
-            try:
-                df_temp = df.with_columns([
-                    pl.col('_EnteredRaw').str.strptime(pl.Datetime, '%m/%d/%Y %H:%M:%S %z', strict=False).alias('EnteredTime'),
-                    pl.col('_ExitedRaw').str.strptime(pl.Datetime, '%m/%d/%Y %H:%M:%S %z', strict=False).alias('ExitedTime')
-                ])
-                df = df_temp.with_columns(
-                    ((pl.col('ExitedTime') - pl.col('EnteredTime')).dt.total_seconds()).fill_null(0.0).alias('Duration')
-                ).drop(['EnteredTime', 'ExitedTime'])
-            except:
-                pass
+            # Try multiple formats for datetime parsing
+            date_formats = [
+                '%m/%d/%Y %H:%M:%S %z',  # With seconds and timezone
+                '%m/%d/%Y %H:%M:%S',     # With seconds
+                '%m/%d/%Y %H:%M',        # Without seconds
+                '%Y-%m-%d %H:%M:%S',     # ISO-like with seconds
+                '%Y-%m-%d %H:%M',        # ISO-like without seconds
+                '%Y/%m/%d %H:%M:%S',
+            ]
             
-            # Remove raw columns
-            df = df.drop(['_EnteredRaw', '_ExitedRaw'])
+            entered_dt = None
+            exited_dt = None
             
-        if 'Duration' in df.columns and df.schema['Duration'] != pl.Float64:
-            # If it's Time type (common from CSV imports of duration strings like HH:MM:SS)
-            if df.schema['Duration'] == pl.Time:
-                df = df.with_columns(
-                    (pl.col("Duration").dt.hour() * 3600 + 
-                     pl.col("Duration").dt.minute() * 60 + 
-                     pl.col("Duration").dt.second() + 
-                     pl.col("Duration").dt.nanosecond() / 1e9).cast(pl.Float64).alias("Duration")
-                )
-            # If it's String, try to parse to Time first then convert
-            elif df.schema['Duration'] == pl.Utf8:
+            for fmt in date_formats:
                 try:
-                    df = df.with_columns(
-                        pl.col("Duration").str.strptime(pl.Time, "%H:%M:%S%.f", strict=False).alias("Duration_Time")
-                    )
-                    df = df.with_columns(
-                         (pl.col("Duration_Time").dt.hour() * 3600 + 
-                          pl.col("Duration_Time").dt.minute() * 60 + 
-                          pl.col("Duration_Time").dt.second() + 
-                          pl.col("Duration_Time").dt.nanosecond() / 1e9).fill_null(0.0).alias("Duration")
-                    ).drop("Duration_Time")
+                    # Check if we successfully parsed at least some rows
+                    e_test = df['_EnteredRaw'].str.strptime(pl.Datetime, fmt, strict=False)
+                    x_test = df['_ExitedRaw'].str.strptime(pl.Datetime, fmt, strict=False)
+                    
+                    if e_test.null_count() < len(df) * 0.5: # If more than 50% parsed
+                        df = df.with_columns([
+                            e_test.alias('_EntryDT'),
+                            x_test.alias('_ExitDT')
+                        ])
+                        # Calculate duration in seconds
+                        df = df.with_columns(
+                            ((pl.col('_ExitDT') - pl.col('_EntryDT')).dt.total_seconds()).alias('Duration')
+                        )
+                        break
                 except:
-                   df = df.with_columns(pl.lit(0.0).alias('Duration'))
-            else:
-                 # Ensure Float
-                 df = df.with_columns(pl.col('Duration').cast(pl.Float64, strict=False).fill_null(0.0))
-        elif 'Duration' not in df.columns:
-            # If Duration missing entirely, default to 0
+                    continue
+
+        # Fallback for Duration from string column (like "0:00:36")
+        if ('Duration' not in df.columns or df['Duration'].null_count() == len(df)) and 'Duration_Raw' in df.columns:
+            try:
+                def parse_hms(s):
+                    if not s or not isinstance(s, str): return 0.0
+                    parts = s.split(':')
+                    try:
+                        if len(parts) == 3:
+                            return float(parts[0])*3600 + float(parts[1])*60 + float(parts[2])
+                        elif len(parts) == 2:
+                            return float(parts[0])*60 + float(parts[1])
+                    except:
+                        pass
+                    return 0.0
+                
+                df = df.with_columns(
+                    pl.col('Duration_Raw').map_elements(parse_hms, return_dtype=pl.Float64).alias('Duration')
+                )
+            except Exception as e:
+                print(f"Fallback duration calculation failed: {e}")
+
+        # Final Duration Cleanup
+        if 'Duration' not in df.columns:
             df = df.with_columns(pl.lit(0.0).alias('Duration'))
-        
-        # Calculate Net PnL (PnL - Fees) for accurate total
+        # Add internal helper columns for frontend aggregation
+        df = df.with_columns(
+            pl.col('Date_Obj').dt.to_string("%Y-%m-%d").alias('Day')
+        ).with_row_index("_row_id")
+
+        # Cleanup temporary columns
+        cols_to_drop = ['_EnteredRaw', '_ExitedRaw', '_EntryDT', '_ExitDT', 'Duration_Raw']
+        df = df.drop([c for c in cols_to_drop if c in df.columns])
+
+        # Calculate Net PnL (PnL - Fees)
         df = df.with_columns(
             (pl.col('PnL') - pl.col('Fees')).alias('NetPnL')
         )
         
-        # If Direction missing, try to infer (Optional, simplified)
+        # Ensure Direction (Long/Short) exists
         if 'Direction' not in df.columns:
              df = df.with_columns(pl.lit('Unknown').alias('Direction'))
 
@@ -231,11 +250,11 @@ def calculate_stats(df: pl.DataFrame) -> Dict[str, Any]:
     avg_loss_duration = losses['Duration'].mean() if loss_count > 0 else 0.0
     
     # Daily Aggregation (use NetPnL for accurate daily totals)
-    daily_df = df.group_by('Date').agg([
+    daily_df = df.group_by('Date_Obj').agg([
         pl.col('NetPnL').sum().alias('DailyPnL'),
         pl.col('PnL').count().alias('TradeCount'),
         (pl.col('PnL') > 0).sum().alias('WinCount')
-    ]).sort('Date')
+    ]).rename({'Date_Obj': 'Date'}).sort('Date')
     
     # Daily Stats
     daily_pnl = daily_df['DailyPnL']
@@ -315,10 +334,11 @@ def calculate_stats(df: pl.DataFrame) -> Dict[str, Any]:
 
 def prepare_charts_data(df: pl.DataFrame) -> Dict[str, Any]:
     # 1. Daily/Cumulative PnL (Line & Bar) - Use NetPnL
-    daily_agg = df.group_by('Date').agg([
+    daily_agg = df.group_by('Date_Obj').agg([
         pl.col('NetPnL').sum().alias('DailyPnL'),
         pl.col('PnL').count().alias('TradeCount')
-    ]).sort('Date')
+    ]).rename({'Date_Obj': 'Date'}).sort('Date')
+    
     daily_agg = daily_agg.with_columns(pl.col('DailyPnL').cum_sum().alias('CumulativePnL'))
     
     # Convert dates to string for JSON serialization

@@ -87,8 +87,8 @@ const StatCard = ({
         <div className="card flex flex-col justify-between h-full min-h-[110px] !p-5">
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
-                    <span className="text-slate-400 text-[11px] uppercase tracking-wider font-bold">{title}</span>
-                    <Info size={12} className="text-slate-600 hover:text-slate-400 cursor-help transition-colors" />
+                    <span className="text-slate-400 text-sm uppercase tracking-wider font-bold">{title}</span>
+                    <Info size={14} className="text-slate-600 hover:text-slate-400 cursor-help transition-colors" />
                 </div>
                 {type === 'winrate' && gaugeValue !== undefined && (
                     <Gauge value={safeGaugeValue} color={chartColor} />
@@ -97,7 +97,7 @@ const StatCard = ({
 
             <div className="flex flex-col justify-end flex-grow">
                 <div className="flex items-baseline gap-2">
-                    <span className={`text-2xl font-bold tracking-tight ${valueColor}`}>
+                    <span className={`text-3xl font-bold tracking-tight ${valueColor}`}>
                         {displayValue}
                     </span>
                     {trendIcon}
@@ -109,7 +109,7 @@ const StatCard = ({
                 )}
 
                 {subtext && (
-                    <div className="text-[11px] text-slate-500 mt-1.5 font-medium flex items-center gap-1">
+                    <div className="text-sm text-slate-500 mt-2 font-medium flex items-center gap-1">
                         {subtext}
                     </div>
                 )}
