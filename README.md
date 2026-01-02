@@ -130,10 +130,5 @@ cd frontend
 npm run build
 ```
 
-## Documentation
-
-- **[Tag Analytics User Guide](TAG_ANALYTICS_GUIDE.md)**: Complete guide for using the Tag Analytics feature
-- **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)**: Technical details of the Tag Analytics implementation
-
 ## License
 MIT
