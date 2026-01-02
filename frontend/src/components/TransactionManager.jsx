@@ -82,31 +82,32 @@ const TransactionManager = ({
         }
     };
 
-    const updateHistory = (newTrades) => {
+    // Optimized handlers with useCallback to prevent unnecessary re-renders
+    const updateHistory = useCallback((newTrades) => {
         const nextHistory = history.slice(0, historyIndex + 1);
         nextHistory.push(newTrades);
         setHistory(nextHistory);
         setHistoryIndex(nextHistory.length - 1);
         onUpdateTrades(newTrades);
-    };
+    }, [history, historyIndex, onUpdateTrades]);
 
-    const undo = () => {
+    const undo = useCallback(() => {
         if (historyIndex > 0) {
             const nextIdx = historyIndex - 1;
             setHistoryIndex(nextIdx);
             onUpdateTrades(history[nextIdx]);
         }
-    };
+    }, [historyIndex, history, onUpdateTrades]);
 
-    const redo = () => {
+    const redo = useCallback(() => {
         if (historyIndex < history.length - 1) {
             const nextIdx = historyIndex + 1;
             setHistoryIndex(nextIdx);
             onUpdateTrades(history[nextIdx]);
         }
-    };
+    }, [historyIndex, history, onUpdateTrades]);
 
-    const handleMerge = () => {
+    const handleMerge = useCallback(() => {
         if (selectedRows.size < 2) return;
 
         const indices = Array.from(selectedRows).sort((a, b) => a - b);
@@ -139,17 +140,17 @@ const TransactionManager = ({
 
         setSelectedRows(new Set());
         updateHistory(newTrades);
-    };
+    }, [selectedRows, filteredTrades, trades, updateHistory]);
 
-    const handleEdit = (trade, key, value) => {
+    const handleEdit = useCallback((trade, key, value) => {
         const newTrades = trades.map(t => {
             if (t === trade || (t.mergeId && t.mergeId === trade.mergeId)) return { ...t, [key]: value };
             return t;
         });
         updateHistory(newTrades);
-    };
+    }, [trades, updateHistory]);
 
-    const handleAddTag = (trade, field, tagToAdd) => {
+    const handleAddTag = useCallback((trade, field, tagToAdd) => {
         const val = tagToAdd || newTagValue;
         if (!val.trim()) {
             setEditingTradeId(null);
@@ -161,10 +162,6 @@ const TransactionManager = ({
         const currentVal = trade[field] || '';
         const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean);
 
-        // If it's Additional Tag and empty, we might want to include Direction, 
-        // but if the user is explicitly adding a tag, maybe they want to start fresh?
-        // Let's stick to appending.
-
         if (!tags.includes(val.trim()) && tags.length < 5) {
             const newVal = [...tags, val.trim()].join(', ');
             handleEdit(trade, field, newVal);
@@ -173,14 +170,14 @@ const TransactionManager = ({
         setNewTagValue('');
         setEditingTradeId(null);
         setEditingField(null);
-    };
+    }, [newTagValue, handleEdit]);
 
-    const handleRemoveTag = (trade, field, tagToRemove) => {
+    const handleRemoveTag = useCallback((trade, field, tagToRemove) => {
         const currentVal = trade[field] || '';
         const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean);
         const newVal = tags.filter(t => t !== tagToRemove).join(', ');
         handleEdit(trade, field, newVal);
-    };
+    }, [handleEdit]);
 
     const exportToCSV = () => {
         if (!trades.length) return;
@@ -216,12 +213,6 @@ const TransactionManager = ({
     const renderTags = (trade, field, tradeId) => {
         const currentTagsRaw = trade[field] || '';
         let tags = currentTagsRaw.split(',').map(s => s.trim()).filter(Boolean);
-
-        // Filter out redundant tags (Long/Short) if they match Direction
-        if (field === 'Additional Tag' && trade.Direction) {
-            const dir = trade.Direction.toLowerCase();
-            tags = tags.filter(t => t.toLowerCase() !== dir && t.toLowerCase() !== 'long' && t.toLowerCase() !== 'short');
-        }
 
         const isEditing = editingTradeId === tradeId && editingField === field;
 

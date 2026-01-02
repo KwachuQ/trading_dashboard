@@ -8,6 +8,12 @@ Built with Google Antigravity.
 
 - **Advanced Analytics Grid**: 16 key performance indicators organized into specialized rows (Performance, Averages, Records, and Durations).
 - **Dynamic Date Range Filtering**: Real-time recalculation of all statistics and charts based on selected date ranges.
+- **Tag Analytics** ⭐ NEW:
+    - Multi-tag filtering with AND logic (trades must have ALL selected tags).
+    - Dedicated analytics page showing 16 KPIs for filtered trades.
+    - localStorage persistence for tag selections across sessions.
+    - Combined filtering across "Setup Tag" and "Additional Tag" columns.
+    - Optimized performance (<100ms response time).
 - **Enhanced Calendar Heatmap**:
     - High-visibility design.
     - Weekly PnL summaries and trade count rollups.
@@ -17,6 +23,11 @@ Built with Google Antigravity.
     - **Trade Duration Analysis**: Bucketed histogram identifying your trade frequency across duration ranges.
     - **Win Rate Analysis**: Specialized chart showing your edge/win-rate across different trade holding times.
 - **Detailed Trade Log**: Sortable and paginated table of every individual trade with precise metrics.
+- **Advanced Trade Tagging**:
+    - Add up to 5 custom tags per trade (Setup Tag + Additional Tag columns).
+    - Color-coded tags with customizable colors.
+    - Autocomplete from existing tags.
+    - Undo/redo support for all tag operations.
 - **Timestamp Accuracy**: Advanced backend logic that calculates exact trade durations from raw entry/exit timestamps, ensuring precision even with complex exports.
 - **User-Friendly Upload**: Drag-and-drop or click-to-upload CSV mapping that handles varied column names (Fees, Commission, Net PnL, etc.).
 
@@ -118,6 +129,11 @@ To check for production readiness:
 cd frontend
 npm run build
 ```
+
+## Documentation
+
+- **[Tag Analytics User Guide](TAG_ANALYTICS_GUIDE.md)**: Complete guide for using the Tag Analytics feature
+- **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)**: Technical details of the Tag Analytics implementation
 
 ## License
 MIT

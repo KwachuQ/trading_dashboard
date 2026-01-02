@@ -48,7 +48,8 @@ def process_csv(file: BinaryIO) -> Dict[str, Any]:
         direction_col = find_best(dir_candidates)
         entered_candidates = ['entered', 'entry date', 'entry_date', 'entry_time', 'open_time', 'open time', 'start_date', 'start date', 'entry', 'entrydate']
         exited_candidates = ['exited', 'exit date', 'exit_date', 'exit_time', 'close_time', 'close time', 'end_date', 'end date', 'exit', 'exitdate']
-        strategy_candidates = ['strategy', 'strategy tag', 'strategy_tag', 'setup 2', 'tag 2', 'additional tag', 'type', 'additional_tag', 'additionaltag']
+        # Removed 'type' from candidates since it's used for Direction column
+        strategy_candidates = ['strategy', 'strategy tag', 'strategy_tag', 'setup 2', 'tag 2', 'additional tag', 'additional_tag', 'additionaltag']
 
         entry_date_col = find_best(entered_candidates)
         exit_date_col = find_best(exited_candidates)
