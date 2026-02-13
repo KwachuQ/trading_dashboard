@@ -2,6 +2,7 @@
 ![NodeJS](https://img.shields.io/badge/NodeJS-v22+-green.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.127+-yellow.svg)
 ![Polars](https://img.shields.io/badge/Polars-1.36+-red.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 # Trading Dashboard
 
