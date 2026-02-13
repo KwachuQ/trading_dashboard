@@ -14,7 +14,7 @@ Built with Google Antigravity.
 
 - **Advanced Analytics Grid**: 16 key performance indicators organized into specialized rows (Performance, Averages, Records, and Durations).
 - **Dynamic Date Range Filtering**: Real-time recalculation of all statistics and charts based on selected date ranges.
-- **Tag Analytics** ⭐ NEW:
+- **Tag Analytics**:
     - Multi-tag filtering with AND logic (trades must have ALL selected tags).
     - Dedicated analytics page showing 16 KPIs for filtered trades.
     - localStorage persistence for tag selections across sessions.
