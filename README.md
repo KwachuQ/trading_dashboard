@@ -1,3 +1,8 @@
+![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
+![NodeJS](https://img.shields.io/badge/NodeJS-v22+-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.127+-yellow.svg)
+![Polars](https://img.shields.io/badge/Polars-1.36+-red.svg)
+
 # Trading Dashboard
 
 A high-performance web dashboard for analyzing trading performance with precision. Built with a FastAPI backend (leveraging Polars for rapid data processing) and a modern React frontend with Tailwind CSS and Recharts. It is integrated to read .csv files exported from TopStepX trading platform.
@@ -54,7 +59,7 @@ Built with Google Antigravity.
 </p>
 
 ## Prerequisites
-- **Python**: 3.8+
+- **Python**: 3.11+
 - **Node.js**: v20.19+ or v22+ (Recommended for Vite v7)
 - **Git**
 
