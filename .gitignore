@@ -28,6 +28,9 @@ build/
 /data/*.csv
 /data/*.xlsx
 /data/*.xls
+/data/*.db
+/data/*.db-wal
+/data/*.db-shm
 
 # IDE
 .vscode/
@@ -50,3 +53,6 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+#Other
+ideas_to_implement.md

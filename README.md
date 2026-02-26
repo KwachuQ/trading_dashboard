@@ -1,140 +1,211 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![NodeJS](https://img.shields.io/badge/NodeJS-v22+-green.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.127+-yellow.svg)
-![Polars](https://img.shields.io/badge/Polars-1.36+-red.svg)
+![SQLite](https://img.shields.io/badge/SQLite-3-lightblue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 # Trading Dashboard
 
-A high-performance web dashboard for analyzing trading performance with precision. Built with a FastAPI backend (leveraging Polars for rapid data processing) and a modern React frontend with Tailwind CSS and Recharts. It is integrated to read .csv files exported from TopStepX trading platform.
+A persistent local trade journal for Sierra Chart exports. Import your
+`TradesList.txt` after each session, tag trades, track stats,
+and review performance — all data saved locally in SQLite.
 
 Built with Google Antigravity.
 
 ## Core Features
 
-- **Advanced Analytics Grid**: 16 key performance indicators organized into specialized rows (Performance, Averages, Records, and Durations).
-- **Dynamic Date Range Filtering**: Real-time recalculation of all statistics and charts based on selected date ranges.
-- **Tag Analytics**:
-    - Multi-tag filtering with AND logic (trades must have ALL selected tags).
-    - Dedicated analytics page showing 16 KPIs for filtered trades.
-    - localStorage persistence for tag selections across sessions.
-    - Combined filtering across "Setup Tag" and "Additional Tag" columns.
-    - Optimized performance (<100ms response time).
-- **Enhanced Calendar Heatmap**:
-    - High-visibility design.
-    - Weekly PnL summaries and trade count rollups.
-    - Color-coded daily performance tracking.
-- **Statistical Analysis Charts**:
-    - **Equity Curve & Daily Net PnL**: Standard performance tracking over time.
-    - **Trade Duration Analysis**: Bucketed histogram identifying your trade frequency across duration ranges.
-    - **Win Rate Analysis**: Specialized chart showing your edge/win-rate across different trade holding times.
-- **Detailed Trade Log**: Sortable and paginated table of every individual trade with precise metrics.
-- **Advanced Trade Tagging**:
-    - Add up to 5 custom tags per trade (Setup Tag + Additional Tag columns).
-    - Color-coded tags with customizable colors.
-    - Autocomplete from existing tags.
-    - Undo/redo support for all tag operations.
-- **Timestamp Accuracy**: Advanced backend logic that calculates exact trade durations from raw entry/exit timestamps, ensuring precision even with complex exports.
-- **User-Friendly Upload**: Drag-and-drop or click-to-upload CSV mapping that handles varied column names (Fees, Commission, Net PnL, etc.).
+- **Sierra Chart Import**: Parses `TradesList.txt` directly. Multiple
+  fills are automatically aggregated into flat-to-flat trades.
+- **Persistent Database**: Trades, tags, ratings, and comments are stored in
+  `data/trades.db` (SQLite). Loads instantly on next startup.
+- **Safe Incremental Imports**: Re-importing the same file never creates
+  duplicates. Only new trades are added, existing entries stay untouched.
+- **Multi-Instrument Support**: MNQ, NQ, MES, ES, MCL, CL — CME contract
+  specs (point value, tick size) applied automatically per instrument.
 
-## Screenshots
+### Stats Overview Tab
 
-<p align="center">
-    <img src="static/stats_grid.png" alt="Stats grid" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
-    <br><em>Key performance indicators grid</em>
-</p>
+- **16 KPI Stat Cards**: Total P&L, win rate, profit factor, avg win/loss,
+  best/worst trade, avg hold duration, direction bias, and more.
+- **Direction Toggle**: Switch between **All Trades**, **Longs Only**, and
+  **Shorts Only** — stat cards, charts, and the calendar all update instantly.
+- **Dynamic Date Range Filtering**: Compose with the direction toggle to drill
+  into any window of longs or shorts.
+- **Calendar Heatmap**: Daily P&L and trade counts with weekly rollup column.
+- **Charts**: Equity curve, daily net P&L bar chart, duration histogram, win
+  rate by duration bucket.
 
-<p align="center">
-    <img src="static/charts.png" alt="Charts" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
-    <br><em>Equity curve and PnL charts</em>
-</p>
+### Advanced Stats Tab
 
-<p align="center">
-    <img src="static/calendar.png" alt="Calendar heatmap" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
-    <br><em>Calendar heatmap with weekly rollups</em>
-</p>
+- **20 Sierra Chart Metrics**: Loaded from `TradeStatistics.txt` — metrics not
+  shown on the overview tab, covering MFE/MAE, drawdown, equity curve extremes,
+  gross P&L breakdown, FlatToFlat quality, consecutive streaks, and
+  concentration risk.
+- **Direction Toggle**: Same All / Longs / Shorts pill toggle — each card's
+  value and the MFE vs MAE excursion bar and streak comparison bars all update
+  dynamically.
+- **Drag-and-Drop Upload**: Drop `TradeStatistics.txt` directly onto the tab.
+  Metrics are persisted to `localStorage` and survive page refreshes.
 
-<p align="center">
-    <img src="static/trade_log.png" alt="Trades table" width="900" style="max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);"/>
-    <br><em>Detailed trades table and filters</em>
-</p>
+### Trades Table Tab
+
+- **Trade Merges**: Merge related trades into one composite entry (persisted).
+- **Undo / Redo**: Full undo/redo history for tag edits in the current session.
+- **CSV Export**: Export visible trades as CSV from the trade table.
+- **Tag & Rating Editor**: Inline tag assignment, star rating, and free-text
+  comments, all persisted to SQLite.
+
+### Tag Analytics Tab
+
+- **Multi-tag filtering**: AND/OR logic across Setup Tag and Additional Tag.
+- **Per-tag analytics**: Win rate, avg P&L, trade count, and equity curve by
+  tag — with colour-coded labels and a per-tag colour picker.
+
+---
 
 ## Prerequisites
-- **Python**: 3.11+
-- **Node.js**: v20.19+ or v22+ (Recommended for Vite v7)
-- **Git**
 
-## Quick Start
+| Requirement | Version |
+|---|---|
+| Python | 3.11 + |
+| Node.js | v20 + |
 
-### 1. Backend Setup
+---
 
-Navigate to the `backend` directory:
-```bash
+## First-Time Setup (run once)
+
+### 1. Backend
+
+```powershell
 cd backend
-```
-
-Create and activate a virtual environment (optional but recommended):
-```bash
-# Windows
 python -m venv venv
 .\venv\Scripts\activate
-
-# Linux/Mac
-python3 -m venv venv
-source venv/bin/activate
-```
-
-Install dependencies:
-```bash
 pip install -r requirements.txt
 ```
 
-Run the backend server:
-```bash
-python main.py
-```
-The API will be available at `http://localhost:8000`.
+### 2. Frontend
 
-### 2. Frontend Setup
-
-Open a new terminal and navigate to the `frontend` directory:
-```bash
+```powershell
 cd frontend
-```
-
-Install dependencies:
-```bash
 npm install
 ```
 
-Start the development server:
-```bash
+---
+
+## Running the App (every session)
+
+You need **two terminals** — one for the backend, one for the frontend.
+
+### Terminal 1 — Backend
+
+```powershell
+cd backend
+.\venv\Scripts\activate   # skip if not using a venv
+python main.py
+```
+
+Backend runs at **http://localhost:8000**
+
+### Terminal 2 — Frontend
+
+```powershell
+cd frontend
 npm run dev
 ```
-The application will be accessible at `http://localhost:5173`.
 
-## Local Testing & Verification
+Open **http://localhost:5173** in your browser.
 
-### Run Unit Tests (Backend)
-To verify the CSV processing logic:
-```bash
-# From the root directory
-python backend/test_processor.py
+> **Tip:** Use the `start.ps1` script in the project root to launch
+> both servers with a single double-click (see below).
+
+---
+
+## One-Click Launch (`start.ps1`)
+
+From the project root, right-click `start.ps1` → **Run with PowerShell**.
+It opens both the backend and frontend in separate windows automatically,
+then opens the dashboard in your default browser.
+
+---
+
+## Daily Workflow
+
+1. Finish your trading session in Sierra Chart.
+2. Export trades: **Trade Activity → File → Save log as** → save as `TradesList.txt`.
+3. Export statistics: **Trade Activity → Trade Statistics** → save as `TradeStatistics.txt`.
+4. Start the app (or it may already be running).
+5. Click **Import Trades** and drag `TradesList.txt` onto the upload zone.
+   Only new trades are added — duplicates are silently skipped.
+6. Open the **Advanced Stats** tab and drop `TradeStatistics.txt` to load
+   the 20 advanced metrics. Stats are cached and persist across sessions.
+7. Tag, rate, and comment on trades in the **Trades Table** tab.
+
+---
+
+## Running Tests
+
+```powershell
+# Activate backend venv first, then from the project root:
+cd backend
+.\venv\Scripts\python.exe -m pytest ..\tests\ -v
 ```
 
-### Verify with Real Data
-To test against a specific export file (e.g., `data/trades_export.csv`):
-```bash
-# From the root directory
-python backend/verify_real_data.py
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Health check |
+| `POST` | `/import` | Import `TradesList.txt` |
+| `GET` | `/trades` | List all trades with stats |
+| `PUT` | `/trades/{id}/tags` | Update Setup / Additional tag |
+| `PUT` | `/trades/{id}/metadata` | Update rating and comments |
+| `POST` | `/trades/merge` | Merge multiple trades |
+| `DELETE` | `/trades/{id}` | Delete a trade |
+| `POST` | `/trade-statistics` | Parse `TradeStatistics.txt` |
+
+---
+
+## Project Structure
+
+```
+trading_dashboard/
+├── backend/
+│   ├── core/
+│   │   ├── sierra_parser.py          # TradesList.txt parser + F2F aggregation
+│   │   ├── trade_statistics_parser.py # TradeStatistics.txt parser (20 metrics)
+│   │   ├── database.py               # SQLite layer (insert, update, merge, delete)
+│   │   └── stats.py                  # Stats + chart-data computation
+│   ├── main.py                       # FastAPI app + all endpoints
+│   └── requirements.txt
+├── data/
+│   ├── TradesList.txt                # Sierra Chart trades export (not tracked)
+│   ├── TradeStatistics.txt           # Sierra Chart statistics export (not tracked)
+│   └── trades.db                    # SQLite database (auto-created, not tracked)
+├── frontend/
+│   └── src/
+│       ├── App.jsx
+│       ├── components/
+│       │   ├── Dashboard.jsx         # Tab layout + direction filter logic
+│       │   ├── AdvancedStatsTab.jsx  # 20-metric tab with direction toggle
+│       │   ├── StatCard.jsx
+│       │   ├── Charts.jsx
+│       │   ├── CalendarView.jsx
+│       │   ├── TransactionManager.jsx
+│       │   ├── TagAnalyticsPage.jsx
+│       │   └── ...
+│       └── hooks/
+│           └── useTradeStats.js
+├── tests/
+│   ├── test_sierra_parser.py
+│   ├── test_database.py
+│   └── test_trade_statistics_parser.py
+├── start.ps1                         # One-click launcher
+└── README.md
 ```
 
-### Build Frontend
-To check for production readiness:
-```bash
-cd frontend
-npm run build
-```
+---
 
 ## License
 MIT

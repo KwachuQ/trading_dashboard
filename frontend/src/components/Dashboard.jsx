@@ -1,60 +1,86 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import StatCard from './StatCard'
 import Charts from './Charts'
 import CalendarView from './CalendarView'
 import TransactionManager from './TransactionManager'
 import TagAnalyticsPage from './TagAnalyticsPage'
+import AdvancedStatsTab from './AdvancedStatsTab'
 import DateRangeFilter from './DateRangeFilter'
 import useTradeStats from '../hooks/useTradeStats'
 import {
     DollarSign, Activity, TrendingUp, Clock, Target,
     ArrowUp, ArrowDown, BarChart2, Calendar, TrendingDown, Timer,
-    LayoutDashboard, List, Filter
+    LayoutDashboard, List, Filter, Zap
 } from 'lucide-react'
 
-const Dashboard = ({ data }) => {
-    const [activeTab, setActiveTab] = useState('stats') // 'stats' or 'trades'
+/**
+ * Main dashboard component.
+ *
+ * Displays stats, charts, calendar, trade table, and tag analytics.
+ * Receives ``data`` (containing ``data``, ``stats``, ``charts``) and
+ * an ``onRefresh`` callback to reload from the database after mutations.
+ */
+const Dashboard = ({ data, onRefresh }) => {
+    const [activeTab, setActiveTab] = useState('stats')
     const [localTrades, setLocalTrades] = useState([])
     const [dateFilter, setDateFilter] = useState({ startDate: null, endDate: null })
-    const [tagColors, setTagColors] = useState({
-        'Breakout': '#6366f1',
-        'Reversal': '#10b981',
-        'Trend Following': '#f59e0b',
-        'Range': '#94a3b8',
-        'Scalp': '#ef4444',
-        'Other': '#64748b'
+    // Direction filter for the Stats Overview tab: 'all' | 'long' | 'short'
+    const [directionFilter, setDirectionFilter] = useState('all')
+    const [tagColors, setTagColors] = useState(() => {
+        // Load persisted tag colors from localStorage
+        const saved = localStorage.getItem('dashboard_tagColors')
+        if (saved) {
+            try { return JSON.parse(saved) } catch { /* ignore */ }
+        }
+        return {
+            'Breakout': '#6366f1',
+            'Reversal': '#10b981',
+            'Trend Following': '#f59e0b',
+            'Range': '#94a3b8',
+            'Scalp': '#ef4444',
+            'Other': '#64748b'
+        }
     })
 
-    // Initialize local trades when data changes
+    // Initialise local trades when data changes
     useEffect(() => {
         if (data && data.data) {
             setLocalTrades(data.data)
         }
     }, [data])
 
-    const handleUpdateTagColor = (tag, color) => {
-        setTagColors(prev => ({ ...prev, [tag]: color }));
-    };
+    // Persist tag colors to localStorage
+    useEffect(() => {
+        localStorage.setItem('dashboard_tagColors', JSON.stringify(tagColors))
+    }, [tagColors])
 
-    const handleUpdateTrades = (newTrades) => {
-        // Automatically assign colors to new tags from both columns
+    const handleUpdateTagColor = useCallback((tag, color) => {
+        setTagColors(prev => ({ ...prev, [tag]: color }))
+    }, [])
+
+    const handleUpdateTrades = useCallback((newTrades) => {
+        // Auto-assign colours to new tags
+        const nextColors = { ...tagColors }
+        let changed = false
         newTrades.forEach(t => {
             ['Setup Tag', 'Additional Tag'].forEach(field => {
                 if (t[field]) {
-                    const tags = t[field].split(',').map(s => s.trim());
-                    tags.forEach(tag => {
-                        if (tag && !tagColors[tag]) {
-                            const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
-                            setTagColors(prev => ({ ...prev, [tag]: randomColor }));
+                    t[field].split(',').map(s => s.trim()).forEach(tag => {
+                        if (tag && !nextColors[tag]) {
+                            nextColors[tag] = '#' + Math.floor(
+                                Math.random() * 16777215
+                            ).toString(16).padStart(6, '0')
+                            changed = true
                         }
-                    });
+                    })
                 }
-            });
-        });
-        setLocalTrades(newTrades);
-    };
+            })
+        })
+        if (changed) setTagColors(nextColors)
+        setLocalTrades(newTrades)
+    }, [tagColors])
 
-    // Safety check for data structure
+    // Safety check
     if (!data || !data.stats || !data.charts || !data.data) {
         return (
             <div className="flex items-center justify-center min-h-[50vh] text-red-400 font-mono">
@@ -63,67 +89,82 @@ const Dashboard = ({ data }) => {
         )
     }
 
-    // Filter data based on date range
+    // Filter by date range
     const filteredTrades = useMemo(() => {
-        if (!dateFilter.startDate && !dateFilter.endDate) return localTrades || [];
+        if (!dateFilter.startDate && !dateFilter.endDate) return localTrades || []
         return localTrades.filter(t => {
-            const dayKey = t.Day || (t.Date && t.Date.includes(' ') ? t.Date.split(' ')[0] : t.Date);
-            if (dateFilter.startDate && dayKey < dateFilter.startDate) return false;
-            if (dateFilter.endDate && dayKey > dateFilter.endDate) return false;
-            return true;
-        });
-    }, [localTrades, dateFilter]);
+            const dayKey = t.Day || (t.Date && t.Date.includes(' ') ? t.Date.split(' ')[0] : t.Date)
+            if (dateFilter.startDate && dayKey < dateFilter.startDate) return false
+            if (dateFilter.endDate && dayKey > dateFilter.endDate) return false
+            return true
+        })
+    }, [localTrades, dateFilter])
 
-    // Recalculate stats based on filtered trades
-    // Use the custom hook for stats calculation
-    const { stats: currentStats, direction } = useTradeStats(filteredTrades);
+    /**
+     * Apply the direction filter on top of the date-filtered trades.
+     * Used for stat cards, charts, and the calendar on the Stats Overview tab.
+     */
+    const directionFilteredTrades = useMemo(() => {
+        if (directionFilter === 'all') return filteredTrades
+        return filteredTrades.filter(t => {
+            const dir = (t.Direction || '').toLowerCase()
+            if (directionFilter === 'long') return dir.includes('long') || dir.includes('buy')
+            if (directionFilter === 'short') return dir.includes('short') || dir.includes('sell')
+            return true
+        })
+    }, [filteredTrades, directionFilter])
 
-    // Prepare charts data based on localTrades
+    // Recalculate stats from direction-filtered trades
+    const { stats: currentStats, direction } = useTradeStats(directionFilteredTrades)
+
+    // Charts data from direction-filtered trades
     const currentCharts = useMemo(() => {
-        // Simple aggregation for chart (daily pnl)
-        const dailyMap = {};
-        localTrades.forEach(t => {
-            const dayKey = t.Day || (t.Date && t.Date.includes(' ') ? t.Date.split(' ')[0] : t.Date);
-            const pnl = t.NetPnL !== undefined ? t.NetPnL : (t.PnL - (t.Fees || 0));
+        const dailyMap = {}
+        directionFilteredTrades.forEach(t => {
+            const dayKey = t.Day || (t.Date && t.Date.includes(' ') ? t.Date.split(' ')[0] : t.Date)
+            const pnl = t.NetPnL !== undefined ? t.NetPnL : (t.PnL - (t.Fees || 0))
             if (!dailyMap[dayKey]) {
-                dailyMap[dayKey] = { Date: dayKey, DailyPnL: 0, TradeCount: 0 };
+                dailyMap[dayKey] = { Date: dayKey, DailyPnL: 0, TradeCount: 0 }
             }
-            dailyMap[dayKey].DailyPnL += pnl;
-            dailyMap[dayKey].TradeCount += 1;
-        });
+            dailyMap[dayKey].DailyPnL += pnl
+            dailyMap[dayKey].TradeCount += 1
+        })
 
-        const sortedDays = Object.values(dailyMap).sort((a, b) => a.Date.localeCompare(b.Date));
-        let cumulative = 0;
+        const sortedDays = Object.values(dailyMap).sort(
+            (a, b) => a.Date.localeCompare(b.Date)
+        )
+        let cumulative = 0
         const daily_pnl = sortedDays.map(d => {
-            cumulative += d.DailyPnL;
-            return { ...d, CumulativePnL: cumulative };
-        });
+            cumulative += d.DailyPnL
+            return { ...d, CumulativePnL: cumulative }
+        })
 
-        // Filter daily pnl for charts
         const filteredDaily = daily_pnl.filter(d => {
-            if (dateFilter.startDate && d.Date < dateFilter.startDate) return false;
-            if (dateFilter.endDate && d.Date > dateFilter.endDate) return false;
-            return true;
-        });
+            if (dateFilter.startDate && d.Date < dateFilter.startDate) return false
+            if (dateFilter.endDate && d.Date > dateFilter.endDate) return false
+            return true
+        })
 
         return {
             ...data.charts,
-            daily_pnl: filteredDaily
-        };
-    }, [localTrades, data.charts, dateFilter]);
+            daily_pnl: filteredDaily,
+        }
+    }, [directionFilteredTrades, data.charts, dateFilter])
 
     const {
         totalPnL, totalFees, winRate, totalTrades, ev,
         pf, pfValue, bestTrade, worstTrade,
         avgWin, avgLoss,
         avgDuration, avgWinDuration, avgLossDuration
-    } = currentStats;
+    } = currentStats
 
-    const stats_daily = data.stats.daily || {};
+    const stats_daily = data.stats.daily || {}
 
-    // Get min/max dates for filter from original charts data (static range)
-    const minDate = data.data && data.data.length > 0 ? (data.data[0].Day || data.data[0].Date.split(' ')[0]) : '';
-    const maxDate = data.data && data.data.length > 0 ? (data.data[data.data.length - 1].Day || data.data[data.data.length - 1].Date.split(' ')[0]) : '';
+    // Date range bounds
+    const minDate = data.data && data.data.length > 0
+        ? (data.data[0].Day || data.data[0].Date.split(' ')[0]) : ''
+    const maxDate = data.data && data.data.length > 0
+        ? (data.data[data.data.length - 1].Day || data.data[data.data.length - 1].Date.split(' ')[0]) : ''
 
     return (
         <div className="animate-in fade-in duration-500 slide-in-from-bottom-4 flex flex-col gap-5 pb-10">
@@ -150,6 +191,14 @@ const Dashboard = ({ data }) => {
                     <Filter size={22} />
                     Tag Analytics
                 </button>
+                <button
+                    id="tab-advanced-stats"
+                    className={`flex items-center gap-3 px-8 py-4 text-lg font-bold transition-all border-b-2 ${activeTab === 'advanced' ? 'border-accent text-accent' : 'border-transparent text-secondary hover:text-white'}`}
+                    onClick={() => setActiveTab('advanced')}
+                >
+                    <Zap size={22} />
+                    Advanced Stats
+                </button>
             </div>
 
             {activeTab === 'stats' ? (
@@ -161,7 +210,39 @@ const Dashboard = ({ data }) => {
                         maxDate={maxDate}
                     />
 
-                    {/* First row: total PnL, total trades, total fees, profit factor */}
+                    {/* Direction toggle — All / Longs / Shorts */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Direction</span>
+                        <div className="flex rounded-xl overflow-hidden border border-slate-700 w-fit">
+                            {[
+                                { key: 'all', label: 'All Trades' },
+                                { key: 'long', label: 'Longs Only' },
+                                { key: 'short', label: 'Shorts Only' },
+                            ].map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    id={`stats-dir-${key}`}
+                                    onClick={() => setDirectionFilter(key)}
+                                    className={`
+                                        px-5 py-2 text-sm font-semibold transition-all duration-200
+                                        ${directionFilter === key
+                                            ? 'bg-accent text-white'
+                                            : 'bg-transparent text-slate-400 hover:text-white hover:bg-white/5'
+                                        }
+                                    `}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        {directionFilter !== 'all' && (
+                            <span className="text-xs text-accent font-mono">
+                                {directionFilteredTrades.length} trade{directionFilteredTrades.length !== 1 ? 's' : ''}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Row 1: total PnL, total trades, total fees, profit factor */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <StatCard
                             title="Total PnL"
@@ -192,20 +273,10 @@ const Dashboard = ({ data }) => {
                         />
                     </div>
 
-                    {/* Second row: avg win, avg loss, win/loss ratio, exp. value */}
+                    {/* Row 2: avg win, avg loss, win/loss ratio, exp. value */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard
-                            title="Avg Win"
-                            value={`$${avgWin}`}
-                            type="pnl"
-                            icon={ArrowUp}
-                        />
-                        <StatCard
-                            title="Avg Loss"
-                            value={`$${avgLoss}`}
-                            type="pnl"
-                            icon={ArrowDown}
-                        />
+                        <StatCard title="Avg Win" value={`$${avgWin}`} type="pnl" icon={ArrowUp} />
+                        <StatCard title="Avg Loss" value={`$${avgLoss}`} type="pnl" icon={ArrowDown} />
                         <StatCard
                             title="Win/Loss Ratio"
                             value={`${avgLoss !== 0 ? Math.abs(avgWin / avgLoss).toFixed(2) : 0}`}
@@ -213,28 +284,13 @@ const Dashboard = ({ data }) => {
                             icon={Target}
                             subtext="Ratio w/l"
                         />
-                        <StatCard
-                            title="Expected Value"
-                            value={`$${ev}`}
-                            icon={TrendingUp}
-                            type="pnl"
-                        />
+                        <StatCard title="Expected Value" value={`$${ev}`} icon={TrendingUp} type="pnl" />
                     </div>
 
-                    {/* Third row: best trade, worst trade, best day, worst day */}
+                    {/* Row 3: best trade, worst trade, best day, worst day */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard
-                            title="Best Trade"
-                            value={`$${bestTrade}`}
-                            type="pnl"
-                            icon={TrendingUp}
-                        />
-                        <StatCard
-                            title="Worst Trade"
-                            value={`$${worstTrade}`}
-                            type="pnl"
-                            icon={TrendingDown}
-                        />
+                        <StatCard title="Best Trade" value={`$${bestTrade}`} type="pnl" icon={TrendingUp} />
+                        <StatCard title="Worst Trade" value={`$${worstTrade}`} type="pnl" icon={TrendingDown} />
                         <StatCard
                             title="Best Day"
                             value={`$${Math.max(...currentCharts.daily_pnl.map(d => d.DailyPnL), 0).toFixed(2)}`}
@@ -249,7 +305,7 @@ const Dashboard = ({ data }) => {
                         />
                     </div>
 
-                    {/* Fourth row: avg win duration, avg loss duration, avg duration, long/short */}
+                    {/* Row 4: avg win duration, avg loss duration, avg duration, long/short */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <StatCard
                             title="Avg Win Duration"
@@ -284,12 +340,12 @@ const Dashboard = ({ data }) => {
                         />
                     </div>
 
-                    {/* Calendar View - Full Width */}
+                    {/* Calendar View */}
                     <div className="w-full">
                         <CalendarView dailyData={currentCharts.daily_pnl} />
                     </div>
 
-                    {/* Charts - Full Width */}
+                    {/* Charts */}
                     <div className="w-full">
                         <Charts chartsData={currentCharts} />
                     </div>
@@ -303,12 +359,15 @@ const Dashboard = ({ data }) => {
                     onUpdateTagColor={handleUpdateTagColor}
                     dateFilter={dateFilter}
                     onDateFilterChange={setDateFilter}
+                    onRefresh={onRefresh}
                 />
-            ) : (
+            ) : activeTab === 'tags' ? (
                 <TagAnalyticsPage
                     trades={localTrades}
                     tagColors={tagColors}
                 />
+            ) : (
+                <AdvancedStatsTab />
             )}
         </div>
     )

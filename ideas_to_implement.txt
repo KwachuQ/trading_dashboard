@@ -1,0 +1,11 @@
+1. Adaptacja do plików z Sierra Chart (dodanie MAE i MFE do statystyk)
+2. Przeliczenie statystyk na dodatekowo points i ticks.
+3. Add trades explorer:
+- trade data (size, direction, entry price, exit price, entry time, exit time, MAE, MFE, P&L)
+- checklists 
+- tags and rating (change to 3 stars - red, yellow, green - with color coding rows with trade data)
+- screenshot (feature to copy/paste screenshot from trading platform)
+- journal note
+- tags radar chart
+- merge/unmerge trades
+4. Option to hide weekends on calendar

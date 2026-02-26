@@ -1,12 +1,20 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import {
-    ArrowUpDown, ArrowUp, ArrowDown,
-    Trash2, GitMerge, RotateCcw, RotateCw,
-    Download, CheckSquare, Square, Edit2,
-    Calendar, Palette, X, Plus
+    ArrowUp, ArrowDown,
+    GitMerge, RotateCcw, RotateCw,
+    Download, CheckSquare, Square,
+    X, Plus, Loader2
 } from 'lucide-react'
-import DateRangeFilter from './DateRangeFilter'
 
+const API_BASE = 'http://localhost:8000'
+
+/**
+ * Transaction Manager — trade table with inline editing.
+ *
+ * All tag, rating, comment, and merge edits are persisted to the
+ * backend database via API calls.  The component also supports
+ * undo/redo for local state and CSV export.
+ */
 const TransactionManager = ({
     trades = [],
     filteredTrades = [],
@@ -14,207 +22,271 @@ const TransactionManager = ({
     tagColors = {},
     onUpdateTagColor = () => { },
     dateFilter = { startDate: null, endDate: null },
-    onDateFilterChange = () => { }
+    onDateFilterChange = () => { },
+    onRefresh = () => { }
 }) => {
-    const [sortConfig, setSortConfig] = useState({ key: 'Date', direction: 'desc' });
-    const [selectedRows, setSelectedRows] = useState(new Set());
-    const [history, setHistory] = useState([trades]);
-    const [historyIndex, setHistoryIndex] = useState(0);
-    const [activeColorTag, setActiveColorTag] = useState(null);
-    const [editingTradeId, setEditingTradeId] = useState(null);
-    const [editingField, setEditingField] = useState(null); // 'Setup Tag' or 'Additional Tag'
-    const [newTagValue, setNewTagValue] = useState('');
+    const [sortConfig, setSortConfig] = useState({ key: 'Date', direction: 'desc' })
+    const [selectedRows, setSelectedRows] = useState(new Set())
+    const [history, setHistory] = useState([trades])
+    const [historyIndex, setHistoryIndex] = useState(0)
+    const [activeColorTag, setActiveColorTag] = useState(null)
+    const [editingTradeId, setEditingTradeId] = useState(null)
+    const [editingField, setEditingField] = useState(null)
+    const [newTagValue, setNewTagValue] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    // Debounce timer ref for comment saves
+    const saveTimerRef = useRef({})
 
     const presetColors = [
-        '#ff4d4d', // Red
-        '#00e676', // Green
-        '#2979ff', // Blue
-        '#ffea00', // Yellow
-        '#d500f9', // Purple
-        '#ff9100', // Orange
-        '#ffffff', // White
-        '#ff4081', // Pink
-        '#bcaaa4', // Bronze
-        '#00e5ff'  // Cyan
-    ];
+        '#ff4d4d', '#00e676', '#2979ff', '#ffea00', '#d500f9',
+        '#ff9100', '#ffffff', '#ff4081', '#bcaaa4', '#00e5ff'
+    ]
 
     // Sorting logic
     const displayedTrades = useMemo(() => {
-        let sortable = [...filteredTrades];
+        let sortable = [...filteredTrades]
         if (sortConfig.key) {
             sortable.sort((a, b) => {
-                let aVal = a[sortConfig.key];
-                let bVal = b[sortConfig.key];
+                let aVal = a[sortConfig.key]
+                let bVal = b[sortConfig.key]
 
                 if (['PnL', 'NetPnL', 'EntryPrice', 'ExitPrice', 'Duration', 'Size', 'Fees'].includes(sortConfig.key)) {
-                    aVal = parseFloat(aVal) || 0;
-                    bVal = parseFloat(bVal) || 0;
+                    aVal = parseFloat(aVal) || 0
+                    bVal = parseFloat(bVal) || 0
                 }
 
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+                return 0
+            })
         }
-        return sortable;
-    }, [filteredTrades, sortConfig]);
+        return sortable
+    }, [filteredTrades, sortConfig])
 
     const handleSort = (key) => {
-        let direction = 'asc';
+        let direction = 'asc'
         if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
+            direction = 'desc'
         }
-        setSortConfig({ key, direction });
-    };
+        setSortConfig({ key, direction })
+    }
 
     const toggleRow = (idx) => {
-        const next = new Set(selectedRows);
-        if (next.has(idx)) next.delete(idx);
-        else next.add(idx);
-        setSelectedRows(next);
-    };
+        const next = new Set(selectedRows)
+        if (next.has(idx)) next.delete(idx)
+        else next.add(idx)
+        setSelectedRows(next)
+    }
 
     const toggleAll = () => {
         if (selectedRows.size === filteredTrades.length) {
-            setSelectedRows(new Set());
+            setSelectedRows(new Set())
         } else {
-            setSelectedRows(new Set(filteredTrades.map((_, i) => i)));
+            setSelectedRows(new Set(filteredTrades.map((_, i) => i)))
         }
-    };
+    }
 
-    // Optimized handlers with useCallback to prevent unnecessary re-renders
     const updateHistory = useCallback((newTrades) => {
-        const nextHistory = history.slice(0, historyIndex + 1);
-        nextHistory.push(newTrades);
-        setHistory(nextHistory);
-        setHistoryIndex(nextHistory.length - 1);
-        onUpdateTrades(newTrades);
-    }, [history, historyIndex, onUpdateTrades]);
+        const nextHistory = history.slice(0, historyIndex + 1)
+        nextHistory.push(newTrades)
+        setHistory(nextHistory)
+        setHistoryIndex(nextHistory.length - 1)
+        onUpdateTrades(newTrades)
+    }, [history, historyIndex, onUpdateTrades])
 
     const undo = useCallback(() => {
         if (historyIndex > 0) {
-            const nextIdx = historyIndex - 1;
-            setHistoryIndex(nextIdx);
-            onUpdateTrades(history[nextIdx]);
+            const nextIdx = historyIndex - 1
+            setHistoryIndex(nextIdx)
+            onUpdateTrades(history[nextIdx])
         }
-    }, [historyIndex, history, onUpdateTrades]);
+    }, [historyIndex, history, onUpdateTrades])
 
     const redo = useCallback(() => {
         if (historyIndex < history.length - 1) {
-            const nextIdx = historyIndex + 1;
-            setHistoryIndex(nextIdx);
-            onUpdateTrades(history[nextIdx]);
+            const nextIdx = historyIndex + 1
+            setHistoryIndex(nextIdx)
+            onUpdateTrades(history[nextIdx])
         }
-    }, [historyIndex, history, onUpdateTrades]);
+    }, [historyIndex, history, onUpdateTrades])
 
-    const handleMerge = useCallback(() => {
-        if (selectedRows.size < 2) return;
+    // ---------------------------------------------------------------
+    // Backend persistence helpers
+    // ---------------------------------------------------------------
 
-        const indices = Array.from(selectedRows).sort((a, b) => a - b);
-        const selectedTrades = indices.map(idx => filteredTrades[idx]);
+    /** Persist tag update to the database */
+    const persistTags = useCallback(async (tradeId, setupTag, additionalTag) => {
+        if (!tradeId) return
+        try {
+            await fetch(`${API_BASE}/trades/${tradeId}/tags`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    setup_tag: setupTag ?? null,
+                    additional_tag: additionalTag ?? null,
+                }),
+            })
+        } catch (err) {
+            console.error('Failed to persist tags:', err)
+        }
+    }, [])
 
-        const mergedTrade = {
-            ...selectedTrades[0],
-            isMerged: true,
-            mergeId: Date.now()
-        };
+    /** Persist metadata (rating, comments) to the database */
+    const persistMetadata = useCallback(async (tradeId, rating, comments) => {
+        if (!tradeId) return
+        try {
+            await fetch(`${API_BASE}/trades/${tradeId}/metadata`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    setup_rating: rating !== undefined ? rating : null,
+                    comments: comments !== undefined ? comments : null,
+                }),
+            })
+        } catch (err) {
+            console.error('Failed to persist metadata:', err)
+        }
+    }, [])
 
-        mergedTrade.PnL = selectedTrades.reduce((sum, t) => sum + (parseFloat(t.PnL) || 0), 0);
-        mergedTrade.NetPnL = selectedTrades.reduce((sum, t) => sum + (parseFloat(t.NetPnL) || (parseFloat(t.PnL) - (parseFloat(t.Fees) || 0))), 0);
-        mergedTrade.Size = selectedTrades.reduce((sum, t) => sum + (parseFloat(t.Size) || 0), 0);
-        mergedTrade.Fees = selectedTrades.reduce((sum, t) => sum + (parseFloat(t.Fees) || 0), 0);
+    // ---------------------------------------------------------------
+    // Merge — persistent
+    // ---------------------------------------------------------------
 
-        const allEntryDates = selectedTrades.map(t => t.EntryDate || t.Date).filter(Boolean).sort();
-        const allExitDates = selectedTrades.map(t => t.ExitDate || t.Date).filter(Boolean).sort();
+    const handleMerge = useCallback(async () => {
+        if (selectedRows.size < 2) return
 
-        mergedTrade.Date = allEntryDates[0];
-        mergedTrade.EntryDate = allEntryDates[0];
-        mergedTrade.ExitDate = allExitDates[allExitDates.length - 1];
+        const indices = Array.from(selectedRows).sort((a, b) => a - b)
+        const selectedTrades = indices.map(idx => filteredTrades[idx])
+        const tradeIds = selectedTrades.map(t => t.id).filter(Boolean)
 
-        mergedTrade['Setup Tag'] = selectedTrades.map(t => t['Setup Tag']).filter(Boolean).join(', ');
-        mergedTrade['Additional Tag'] = selectedTrades.map(t => t['Additional Tag']).filter(Boolean).join(', ');
-        mergedTrade['Comments'] = selectedTrades.map(t => t['Comments']).filter(Boolean).join(' | ');
+        if (tradeIds.length < 2) {
+            // Fallback: local-only merge (shouldn't happen with DB trades)
+            return
+        }
 
-        const selectedSet = new Set(selectedTrades);
-        const newTrades = [mergedTrade, ...trades.filter(t => !selectedSet.has(t))];
+        setSaving(true)
+        try {
+            const resp = await fetch(`${API_BASE}/trades/merge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trade_ids: tradeIds }),
+            })
+            if (!resp.ok) {
+                const err = await resp.json()
+                console.error('Merge failed:', err)
+                return
+            }
 
-        setSelectedRows(new Set());
-        updateHistory(newTrades);
-    }, [selectedRows, filteredTrades, trades, updateHistory]);
+            const data = await resp.json()
+            setSelectedRows(new Set())
+            onUpdateTrades(data.trades)
+        } catch (err) {
+            console.error('Merge request failed:', err)
+        } finally {
+            setSaving(false)
+        }
+    }, [selectedRows, filteredTrades, onUpdateTrades])
+
+    // ---------------------------------------------------------------
+    // Edit handlers — with DB persistence
+    // ---------------------------------------------------------------
 
     const handleEdit = useCallback((trade, key, value) => {
         const newTrades = trades.map(t => {
-            if (t === trade || (t.mergeId && t.mergeId === trade.mergeId)) return { ...t, [key]: value };
-            return t;
-        });
-        updateHistory(newTrades);
-    }, [trades, updateHistory]);
+            if (t === trade || t.id === trade.id) return { ...t, [key]: value }
+            return t
+        })
+        updateHistory(newTrades)
+
+        // Persist to backend
+        const tradeId = trade.id || trade._row_id
+        if (key === 'Setup Tag' || key === 'Additional Tag') {
+            const updatedTrade = newTrades.find(t => t.id === trade.id)
+            persistTags(
+                tradeId,
+                key === 'Setup Tag' ? value : updatedTrade?.['Setup Tag'],
+                key === 'Additional Tag' ? value : updatedTrade?.['Additional Tag']
+            )
+        } else if (key === 'Setup Rating') {
+            persistMetadata(tradeId, value ? parseInt(value) : null, undefined)
+        } else if (key === 'Comments') {
+            // Debounce comment saves (user types continuously)
+            if (saveTimerRef.current[tradeId]) {
+                clearTimeout(saveTimerRef.current[tradeId])
+            }
+            saveTimerRef.current[tradeId] = setTimeout(() => {
+                persistMetadata(tradeId, undefined, value)
+            }, 600)
+        }
+    }, [trades, updateHistory, persistTags, persistMetadata])
 
     const handleAddTag = useCallback((trade, field, tagToAdd) => {
-        const val = tagToAdd || newTagValue;
+        const val = tagToAdd || newTagValue
         if (!val.trim()) {
-            setEditingTradeId(null);
-            setEditingField(null);
-            setNewTagValue('');
-            return;
+            setEditingTradeId(null)
+            setEditingField(null)
+            setNewTagValue('')
+            return
         }
 
-        const currentVal = trade[field] || '';
-        const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean);
+        const currentVal = trade[field] || ''
+        const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean)
 
         if (!tags.includes(val.trim()) && tags.length < 5) {
-            const newVal = [...tags, val.trim()].join(', ');
-            handleEdit(trade, field, newVal);
+            const newVal = [...tags, val.trim()].join(', ')
+            handleEdit(trade, field, newVal)
         }
 
-        setNewTagValue('');
-        setEditingTradeId(null);
-        setEditingField(null);
-    }, [newTagValue, handleEdit]);
+        setNewTagValue('')
+        setEditingTradeId(null)
+        setEditingField(null)
+    }, [newTagValue, handleEdit])
 
     const handleRemoveTag = useCallback((trade, field, tagToRemove) => {
-        const currentVal = trade[field] || '';
-        const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean);
-        const newVal = tags.filter(t => t !== tagToRemove).join(', ');
-        handleEdit(trade, field, newVal);
-    }, [handleEdit]);
+        const currentVal = trade[field] || ''
+        const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean)
+        const newVal = tags.filter(t => t !== tagToRemove).join(', ')
+        handleEdit(trade, field, newVal)
+    }, [handleEdit])
 
     const exportToCSV = () => {
-        if (!trades.length) return;
-        const headers = Object.keys(trades[0]).filter(h => !h.startsWith('_') && h !== 'Date_Obj');
+        if (!trades.length) return
+        const headers = Object.keys(trades[0]).filter(
+            h => !h.startsWith('_') && h !== 'Date_Obj'
+        )
         const csvRows = [
             headers.join(','),
             ...trades.map(row => headers.map(header => {
-                const val = row[header];
-                return `"${val === undefined || val === null ? '' : val}"`;
+                const val = row[header]
+                return `"${val === undefined || val === null ? '' : val}"`
             }).join(','))
-        ];
-
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `trades_export_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+        ]
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.setAttribute('href', url)
+        link.setAttribute('download', `trades_export_${new Date().toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+    }
 
     const existingTags = useMemo(() => {
-        const tags = new Set();
+        const tags = new Set()
         trades.forEach(t => {
-            if (t['Setup Tag']) t['Setup Tag'].split(',').forEach(s => tags.add(s.trim()));
-            if (t['Additional Tag']) t['Additional Tag'].split(',').forEach(s => tags.add(s.trim()));
-        });
-        return Array.from(tags).sort();
-    }, [trades]);
+            if (t['Setup Tag']) t['Setup Tag'].split(',').forEach(s => tags.add(s.trim()))
+            if (t['Additional Tag']) t['Additional Tag'].split(',').forEach(s => tags.add(s.trim()))
+        })
+        return Array.from(tags).sort()
+    }, [trades])
 
     const renderTags = (trade, field, tradeId) => {
-        const currentTagsRaw = trade[field] || '';
-        let tags = currentTagsRaw.split(',').map(s => s.trim()).filter(Boolean);
+        const currentTagsRaw = trade[field] || ''
+        let tags = currentTagsRaw.split(',').map(s => s.trim()).filter(Boolean)
 
-        const isEditing = editingTradeId === tradeId && editingField === field;
+        const isEditing = editingTradeId === tradeId && editingField === field
 
         return (
             <div className="flex flex-wrap gap-2 items-center">
@@ -235,13 +307,13 @@ const TransactionManager = ({
                                 className="w-4 h-4 rounded-full border border-white/20 hover:scale-125 transition-transform"
                                 style={{ backgroundColor: tagColors[tag] || '#94a3b8' }}
                                 onClick={(e) => {
-                                    e.stopPropagation();
-                                    const key = `${tradeId}-${tag}`;
-                                    setActiveColorTag(activeColorTag === key ? null : key);
+                                    e.stopPropagation()
+                                    const key = `${tradeId}-${tag}`
+                                    setActiveColorTag(activeColorTag === key ? null : key)
                                 }}
                             />
                             <button
-                                onClick={(e) => { e.stopPropagation(); handleRemoveTag(trade, field, tag); }}
+                                onClick={(e) => { e.stopPropagation(); handleRemoveTag(trade, field, tag) }}
                                 className="hover:text-red-400 transition-colors p-0.5"
                             >
                                 <X size={12} />
@@ -260,8 +332,8 @@ const TransactionManager = ({
                                             className="color-swatch"
                                             style={{ backgroundColor: color }}
                                             onClick={() => {
-                                                onUpdateTagColor(tag, color);
-                                                setActiveColorTag(null);
+                                                onUpdateTagColor(tag, color)
+                                                setActiveColorTag(null)
                                             }}
                                         />
                                     ))}
@@ -281,26 +353,25 @@ const TransactionManager = ({
                             value={newTagValue}
                             onChange={(e) => setNewTagValue(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleAddTag(trade, field);
+                                if (e.key === 'Enter') handleAddTag(trade, field)
                                 if (e.key === 'Escape') {
-                                    setEditingTradeId(null);
-                                    setEditingField(null);
-                                    setNewTagValue('');
+                                    setEditingTradeId(null)
+                                    setEditingField(null)
+                                    setNewTagValue('')
                                 }
                             }}
-                            onBlur={(e) => {
-                                // Add if they typed something, otherwise just close
+                            onBlur={() => {
                                 setTimeout(() => {
                                     if (editingTradeId === tradeId) {
                                         if (newTagValue.trim()) {
-                                            handleAddTag(trade, field);
+                                            handleAddTag(trade, field)
                                         } else {
-                                            setEditingTradeId(null);
-                                            setEditingField(null);
-                                            setNewTagValue('');
+                                            setEditingTradeId(null)
+                                            setEditingField(null)
+                                            setNewTagValue('')
                                         }
                                     }
-                                }, 250);
+                                }, 250)
                             }}
                         />
                     </div>
@@ -308,10 +379,10 @@ const TransactionManager = ({
                     tags.length < 5 && (
                         <button
                             onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingTradeId(tradeId);
-                                setEditingField(field);
-                                setNewTagValue('');
+                                e.stopPropagation()
+                                setEditingTradeId(tradeId)
+                                setEditingField(field)
+                                setNewTagValue('')
                             }}
                             className="w-8 h-8 rounded-full bg-white/5 hover:bg-accent/20 hover:text-accent flex items-center justify-center transition-all border border-white/10"
                             title="Add Tag"
@@ -321,8 +392,8 @@ const TransactionManager = ({
                     )
                 )}
             </div>
-        );
-    };
+        )
+    }
 
     return (
         <div className="card w-full p-0 overflow-hidden flex flex-col min-h-[600px]">
@@ -335,10 +406,16 @@ const TransactionManager = ({
             <div className="p-4 border-b border-[var(--card-border)] bg-[var(--bg-card)] flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-6">
                     <h3 className="font-bold text-xl">Transaction Manager</h3>
-                    <DateRangeFilter filter={dateFilter} onFilterChange={onDateFilterChange} compact />
+                    <span className="text-sm text-secondary bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                        {displayedTrades.length} trades
+                        {displayedTrades.length !== trades.length && ` (filtered from ${trades.length})`}
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {saving && (
+                        <Loader2 size={18} className="animate-spin text-accent mr-2" />
+                    )}
                     <div className="flex items-center bg-white/5 rounded-lg p-1 mr-2 border border-white/5">
                         <button className="p-1.5 hover:bg-white/10 rounded disabled:opacity-30" onClick={undo} disabled={historyIndex === 0} title="Undo"><RotateCcw size={20} /></button>
                         <button className="p-1.5 hover:bg-white/10 rounded disabled:opacity-30" onClick={redo} disabled={historyIndex >= history.length - 1} title="Redo"><RotateCw size={20} /></button>
@@ -369,8 +446,8 @@ const TransactionManager = ({
                     </thead>
                     <tbody className="divide-y divide-[var(--card-border)]">
                         {displayedTrades.map((trade, idx) => {
-                            const isSelected = selectedRows.has(idx);
-                            const tradeId = trade._row_id || trade.mergeId || `trade-${idx}`;
+                            const isSelected = selectedRows.has(idx)
+                            const tradeId = trade.id || trade._row_id || trade.mergeId || `trade-${idx}`
 
                             return (
                                 <tr key={tradeId} className={`group hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-accent/5' : ''} ${trade.isMerged ? 'merge-highlight' : ''}`}>
@@ -410,7 +487,7 @@ const TransactionManager = ({
                                         <input type="text" className="bg-transparent border border-transparent hover:border-white/10 p-2 rounded w-full outline-none focus:border-accent transition-all placeholder:opacity-20 text-sm" placeholder="Add comments..." value={trade['Comments'] || ''} onChange={(e) => handleEdit(trade, 'Comments', e.target.value)} />
                                     </td>
                                 </tr>
-                            );
+                            )
                         })}
                     </tbody>
                 </table>
@@ -418,12 +495,12 @@ const TransactionManager = ({
             <div className="p-4 border-t border-[var(--card-border)] bg-black/10 flex justify-between items-center text-sm text-secondary">
                 <div className="flex gap-4">
                     <span>* Multi-tags (max 5) appends to list</span>
-                    <span className="text-accent/80 font-medium">| Showing raw timestamps from CSV file</span>
+                    <span className="text-accent/80 font-medium">| All changes auto-saved to database</span>
                 </div>
-                <span className="italic">Highlighted rows are recent merges</span>
+                <span className="italic">Highlighted rows are merged trades</span>
             </div>
         </div>
-    );
-};
+    )
+}
 
-export default TransactionManager;
+export default TransactionManager
