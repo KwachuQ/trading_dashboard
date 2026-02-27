@@ -1,0 +1,103 @@
+				
+Trade Statistics	Num Fills Filtered	First Fill	Last Fill	Daily Date
+All Symbols	Filtered: 0	2026-01-20  09:39:54	2026-02-24  10:13:24	2026-02-24
+19850621
+Currency Value (C)
+	All Trades	Long Trades	Short Trades	Daily Trades
+Closed Trades Profit/Loss	492.50	-312.50	805.00	-290.00
+Closed Trades Total Profit	1674.50	66.50	1608.00	62.00
+Closed Trades Total Loss	-1182.00	-379.00	-803.00	-352.00
+Profit Factor	1.42	0.18	2.00	0.18
+
+Highest Cumulative Profit	1200.00	0.50	1200.00	16.00
+Lowest Cumulative Loss	0.00	-312.50	0.00	-290.00
+Maximum Runup	1200.00	66.50	1200.00	29.00
+Maximum Drawdown	-750.50	-313.00	-645.00	-306.00
+Maximum FlatToFlat Trade Open Profit	1200.00	161.00	1200.00	121.00
+Maximum FlatToFlat Trade Open Loss	-400.00	-79.00	-400.00	-80.00
+Average Trade Open Profit	65.48	30.78	89.50	22.11
+Average Trade Open Loss	-34.70	-23.28	-42.62	-23.17
+Average Winning Trade Open Profit	152.54	66.50	160.36	26.67
+Average Winning Trade Open Loss	-16.17	-21.00	-15.73	-10.83
+Average Losing Trade Open Profit	32.83	28.68	37.53	19.83
+Average Losing Trade Open Loss	-41.66	-23.41	-62.33	-29.33
+Maximum Trade Open Profit	1200.00	94.50	1200.00	60.50
+Maximum Trade Open Loss	-400.00	-40.00	-400.00	-40.00
+Highest Price During Positions	0.00	0.00	0.00	0.00
+Lowest Price During Positions	0.00	0.00	0.00	0.00
+Total Commissions	0.00	0.00	0.00	0.00
+
+Total Trades	44	18	26	18
+Total FlatToFlat Trades	19	8	11	9
+Total Filled Quantity	88	36	52	36
+Total Buys x Sells	44 x 44	18 x 18	26 x 26	18 x 18
+Percent Profitable	27.27%	5.56%	42.31%	33.33%
+FlatToFlat Percent Profitable	36.84%	12.50%	54.55%	33.33%
+Winning Trades	12	1	11	6
+Winning FlatToFlat Trades	7	1	6	3
+Losing Trades	32	17	15	12
+Losing FlatToFlat Trades	12	7	5	6
+Long Trades	18	18	0	8
+Long FlatToFlat Trades	8	8	0	4
+Short Trades	26	0	26	10
+Short FlatToFlat Trades	11	0	11	5
+
+Average Trade Profit/Loss	11.19	-17.36	30.96	-16.11
+Average FlatToFlat Trade Profit/Loss	25.92	-39.06	73.18	-32.22
+Average Winning Trade	139.54	66.50	146.18	10.33
+Average FlatToFlat Winning Trade	233.50	26.50	268.00	20.67
+Average Losing Trade	-36.94	-22.29	-53.53	-29.33
+Average FlatToFlat Losing Trade	-95.17	-48.43	-160.60	-58.67
+Average Profit Factor	3.78	2.98	2.73	0.35
+Average FlatToFlat Profit Factor	2.45	0.55	1.67	0.35
+
+Largest Winning Trade	1200.00	66.50	1200.00	14.50
+Largest FlatToFlat Winning Trade	1200.00	26.50	1200.00	29.00
+Largest Losing Trade	-400.00	-40.00	-400.00	-40.00
+Largest FlatToFlat Losing Trade	-400.00	-79.00	-400.00	-80.00
+Largest Winner % of Profit	71.66%	100.00%	74.63%	23.39%
+Largest FlatToFlat Winner % of Profit	73.42%	100.00%	74.63%	46.77%
+Largest Loser % of Loss	33.84%	10.55%	49.81%	11.36%
+Largest FlatToFlat Loser % of Loss	35.03%	23.30%	49.81%	22.73%
+
+Max Consecutive Winners	3	0	8	2
+Max Consecutive Losers	17	11	11	4
+
+Average Time In Trades	5:16	2:27	7:13	1:10
+Average Time In Winning Trades	4:08	4:35	4:05	0:57
+Average Time In Losing Trades	5:42	2:20	9:32	1:17
+Longest Held Winning Trade	20:11	4:35	20:11	1:48
+Longest Held Losing Trade	22:19	14:34	22:19	2:31
+
+Total Quantity	44	18	26	18
+Winning Quantity	12	1	11	6
+Losing Quantity	32	17	15	12
+
+Avg Quantity Per Trade	1.00	1.00	1.00	1.00
+Avg Quantity Per FlatToFlat Trade	2.32	2.25	2.36	2.00
+Avg Quantity Per Winning Trade	1.00	1.00	1.00	1.00
+Avg Quantity Per FlatToFlat Winning Trade	1.86	2.00	1.83	2.00
+Avg Quantity Per Losing Trade	1.00	1.00	1.00	1.00
+Avg Quantity Per FlatToFlat Losing Trade	2.58	2.29	3.00	2.00
+Largest Trade Quantity	1	1	1	1
+Largest FlatToFlat Trade Quantity	8	4	8	2
+Maximum Open Position Quantity	8	4	8	2
+
+Last Trade Profit / Loss	-38.00	-38.00	-40.00	-38.00
+Last FlatToFlat Trade Profit / Loss	-76.00	-76.00	-80.00	-76.00
+Expectancy	25.92	0.00	0.00	0.00
+
+Number of Open Trades	0
+Open Trades: Open Quantity	0
+Open Trades: Average Entry Price	0.00
+
+Consecutive Winners	Frequency	Average Profit/Loss	Avg Next Trade
+1 Winners	1	1200.00	-3.50
+2 Winners	4	98.75	-24.63
+3 Winners	1	79.50	-40.00
+
+Consecutive Losers	Frequency	Average Profit/Loss	Avg Next Trade
+2 Losers	2	-40.00	11.75
+3 Losers	1	-119.00	120.00
+4 Losers	1	-116.00	7.50
+17 Losers	1	-711.00	6.50

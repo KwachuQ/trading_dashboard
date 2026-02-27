@@ -330,3 +330,61 @@ tr:hover td {
 .tag-badge:hover {
   filter: brightness(1.1);
 }
+
+/* ---- Comment tooltip ---- */
+
+/**
+ * Wrapper that enables the hover-triggered popup.
+ * The input inside it is still fully editable.
+ */
+.comment-tooltip-wrapper {
+  position: relative;
+}
+
+/**
+ * The floating tooltip — hidden by default, shown on wrapper hover.
+ * Positioned above the cell so it does not push the table layout.
+ */
+.comment-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 200;
+  min-width: 240px;
+  max-width: 420px;
+  padding: 12px 16px;
+  background: #0f172a;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  backdrop-filter: blur(8px);
+}
+
+/* Small arrow pointing downward toward the cell */
+.comment-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 20px;
+  border: 6px solid transparent;
+  border-top-color: rgba(99, 102, 241, 0.4);
+}
+
+.comment-tooltip-wrapper:hover .comment-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Dark background utility (used by filter panel) ---- */
+.bg-\[var\(--bg-darker\)\] {
+  background-color: var(--bg-darker);
+}

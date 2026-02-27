@@ -213,11 +213,23 @@ async def merge(body: MergeRequest):
 
 @app.delete("/trades/{trade_id}")
 async def remove_trade(trade_id: int):
-    """Delete a trade by ID."""
+    """
+    Delete a trade by ID.
+
+    Returns the full refreshed dataset so the frontend can update all
+    derived state (stats, charts) in a single round-trip.
+    """
     success = delete_trade(trade_id)
     if not success:
         raise HTTPException(status_code=404, detail="Trade not found.")
-    return {"message": "Trade deleted.", "trade_id": trade_id}
+    all_trades = get_all_trades()
+    return {
+        "message": "Trade deleted.",
+        "trade_id": trade_id,
+        "trades": _format_trades_for_frontend(all_trades),
+        "stats": compute_stats(all_trades),
+        "charts": prepare_charts_data(all_trades),
+    }
 
 
 @app.post("/trade-statistics")
