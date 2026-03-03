@@ -411,7 +411,7 @@ const TransactionManager = ({
         const currentVal = trade[field] || ''
         const tags = currentVal.split(',').map(s => s.trim()).filter(Boolean)
 
-        if (!tags.includes(val.trim()) && tags.length < 5) {
+        if (!tags.includes(val.trim()) && tags.length < 10) {
             const newVal = [...tags, val.trim()].join(', ')
             handleEdit(trade, field, newVal)
         }
@@ -571,7 +571,7 @@ const TransactionManager = ({
                         />
                     </div>
                 ) : (
-                    tags.length < 5 && (
+                    tags.length < 10 && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
@@ -645,8 +645,8 @@ const TransactionManager = ({
                     <button
                         onClick={() => setShowFilters(f => !f)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${isFilterActive
-                                ? 'bg-accent/20 border-accent/50 text-accent'
-                                : 'bg-white/5 border-white/10 text-secondary hover:text-white hover:bg-white/10'
+                            ? 'bg-accent/20 border-accent/50 text-accent'
+                            : 'bg-white/5 border-white/10 text-secondary hover:text-white hover:bg-white/10'
                             }`}
                         title="Toggle filters"
                     >
@@ -894,8 +894,8 @@ const TransactionManager = ({
                                     {/* Direction */}
                                     <td className="py-4">
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase ${trade.Direction?.toLowerCase().includes('long')
-                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
                                             }`}>
                                             {trade.Direction}
                                         </span>
@@ -953,7 +953,7 @@ const TransactionManager = ({
             {/* ---- Footer ---- */}
             <div className="p-4 border-t border-[var(--card-border)] bg-black/10 flex justify-between items-center text-sm text-secondary">
                 <div className="flex gap-4">
-                    <span>* Multi-tags (max 5) appends to list</span>
+                    <span>* Multi-tags (max 10) appends to list</span>
                     <span className="text-accent/80 font-medium">| All changes auto-saved to database</span>
                 </div>
                 <span className="italic">Highlighted rows are merged trades</span>
