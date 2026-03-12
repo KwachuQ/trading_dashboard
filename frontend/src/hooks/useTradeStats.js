@@ -10,7 +10,9 @@ const useTradeStats = (filteredTrades) => {
         if (!filteredTrades || filteredTrades.length === 0) {
             return {
                 totalPnL: 0,
+                grossPnL: 0,
                 totalFees: 0,
+                commissionPerTrade: 0,
                 winRate: 0,
                 totalTrades: 0,
                 ev: 0,
@@ -23,7 +25,8 @@ const useTradeStats = (filteredTrades) => {
                 winBarPct: 50,
                 avgDuration: 0,
                 avgWinDuration: 0,
-                avgLossDuration: 0
+                avgLossDuration: 0,
+                tradingDays: 0
             };
         }
 
@@ -73,9 +76,18 @@ const useTradeStats = (filteredTrades) => {
         if (maxWin === -Infinity) maxWin = 0;
         if (maxLoss === Infinity) maxLoss = 0;
 
+        // Count unique calendar days that have at least one trade
+        const daySet = new Set(
+            filteredTrades.map(t => t.Day || (t.Date || '').split(' ')[0]).filter(Boolean)
+        );
+        const tradingDays = daySet.size;
+
         return {
             totalPnL: totalPnL.toFixed(2),
+            grossPnL: (totalPnL + totalFees).toFixed(2),
             totalFees: totalFees.toFixed(2),
+            commissionPerTrade: totalTrades > 0
+                ? (totalFees / totalTrades).toFixed(2) : '0.00',
             winRate: winRate.toFixed(1),
             totalTrades,
             ev: ev.toFixed(2),
@@ -88,7 +100,8 @@ const useTradeStats = (filteredTrades) => {
             winBarPct,
             avgDuration: totalTrades > 0 ? Math.round(totalDuration / totalTrades) : 0,
             avgWinDuration: wins > 0 ? Math.round(totalWinDuration / wins) : 0,
-            avgLossDuration: losses > 0 ? Math.round(totalLossDuration / losses) : 0
+            avgLossDuration: losses > 0 ? Math.round(totalLossDuration / losses) : 0,
+            tradingDays
         };
     }, [filteredTrades]);
 

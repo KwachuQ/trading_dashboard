@@ -157,6 +157,9 @@ def compute_stats(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
             "worst_trade": round(worst_trade, 2),
             "best_trade_net": round(best_trade, 2),
             "worst_trade_net": round(worst_trade, 2),
+            "commission_per_trade": round(
+                total_fees / total_trades if total_trades > 0 else 0.0, 2,
+            ),
         },
         "duration": {
             "avg_duration": round(avg_duration, 2),
@@ -278,6 +281,7 @@ def _empty_stats() -> Dict[str, Any]:
             "expected_value": 0.0, "avg_win": 0.0, "avg_loss": 0.0,
             "best_trade": 0.0, "worst_trade": 0.0,
             "best_trade_net": 0.0, "worst_trade_net": 0.0,
+            "commission_per_trade": 0.0,
         },
         "duration": {
             "avg_duration": 0.0, "avg_win_duration": 0.0,

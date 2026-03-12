@@ -26,6 +26,11 @@ const Dashboard = ({ data, onRefresh }) => {
     const [dateFilter, setDateFilter] = useState({ startDate: null, endDate: null })
     // Direction filter for the Stats Overview tab: 'all' | 'long' | 'short'
     const [directionFilter, setDirectionFilter] = useState('all')
+    // R-value in dollars per 1R (default $80, persisted to localStorage)
+    const [rValue, setRValue] = useState(() => {
+        const saved = localStorage.getItem('dashboard_rValue')
+        return saved ? parseFloat(saved) || 80 : 80
+    })
     const [tagColors, setTagColors] = useState(() => {
         // Load persisted tag colors from localStorage
         const saved = localStorage.getItem('dashboard_tagColors')
@@ -53,6 +58,11 @@ const Dashboard = ({ data, onRefresh }) => {
     useEffect(() => {
         localStorage.setItem('dashboard_tagColors', JSON.stringify(tagColors))
     }, [tagColors])
+
+    // Persist R-value to localStorage
+    useEffect(() => {
+        localStorage.setItem('dashboard_rValue', String(rValue))
+    }, [rValue])
 
     const handleUpdateTagColor = useCallback((tag, color) => {
         setTagColors(prev => ({ ...prev, [tag]: color }))
@@ -152,11 +162,29 @@ const Dashboard = ({ data, onRefresh }) => {
     }, [directionFilteredTrades, data.charts, dateFilter])
 
     const {
-        totalPnL, totalFees, winRate, totalTrades, ev,
+        totalPnL, grossPnL, totalFees, commissionPerTrade,
+        winRate, totalTrades, ev,
         pf, pfValue, bestTrade, worstTrade,
         avgWin, avgLoss,
-        avgDuration, avgWinDuration, avgLossDuration
+        avgDuration, avgWinDuration, avgLossDuration,
+        tradingDays
     } = currentStats
+
+    // Compute max drawdown from the daily CumulativePnL series so it
+    // always matches the equity curve chart (end-of-day granularity).
+    const maxDrawdown = useMemo(() => {
+        const series = currentCharts.daily_pnl
+        if (!series || series.length === 0) return '0.00'
+        let peak = -Infinity
+        let dd = 0
+        for (const d of series) {
+            const cum = d.CumulativePnL ?? 0
+            if (cum > peak) peak = cum
+            const drop = peak - cum
+            if (drop > dd) dd = drop
+        }
+        return dd.toFixed(2)
+    }, [currentCharts.daily_pnl])
 
     const stats_daily = data.stats.daily || {}
 
@@ -210,45 +238,72 @@ const Dashboard = ({ data, onRefresh }) => {
                         maxDate={maxDate}
                     />
 
-                    {/* Direction toggle — All / Longs / Shorts */}
-                    <div className="flex items-center gap-3">
-                        <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Direction</span>
-                        <div className="flex rounded-xl overflow-hidden border border-slate-700 w-fit">
-                            {[
-                                { key: 'all', label: 'All Trades' },
-                                { key: 'long', label: 'Longs Only' },
-                                { key: 'short', label: 'Shorts Only' },
-                            ].map(({ key, label }) => (
-                                <button
-                                    key={key}
-                                    id={`stats-dir-${key}`}
-                                    onClick={() => setDirectionFilter(key)}
-                                    className={`
-                                        px-5 py-2 text-sm font-semibold transition-all duration-200
-                                        ${directionFilter === key
-                                            ? 'bg-accent text-white'
-                                            : 'bg-transparent text-slate-400 hover:text-white hover:bg-white/5'
-                                        }
-                                    `}
-                                >
-                                    {label}
-                                </button>
-                            ))}
+                    {/* Direction + R-value controls */}
+                    <div className="flex items-center gap-5 flex-wrap">
+                        {/* Direction toggle */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Direction</span>
+                            <div className="flex rounded-xl overflow-hidden border border-slate-700 w-fit">
+                                {[
+                                    { key: 'all', label: 'All Trades' },
+                                    { key: 'long', label: 'Longs Only' },
+                                    { key: 'short', label: 'Shorts Only' },
+                                ].map(({ key, label }) => (
+                                    <button
+                                        key={key}
+                                        id={`stats-dir-${key}`}
+                                        onClick={() => setDirectionFilter(key)}
+                                        className={`
+                                            px-5 py-2 text-sm font-semibold transition-all duration-200
+                                            ${directionFilter === key
+                                                ? 'bg-accent text-white'
+                                                : 'bg-transparent text-slate-400 hover:text-white hover:bg-white/5'
+                                            }
+                                        `}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                            {directionFilter !== 'all' && (
+                                <span className="text-xs text-accent font-mono">
+                                    {directionFilteredTrades.length} trade{directionFilteredTrades.length !== 1 ? 's' : ''}
+                                </span>
+                            )}
                         </div>
-                        {directionFilter !== 'all' && (
-                            <span className="text-xs text-accent font-mono">
-                                {directionFilteredTrades.length} trade{directionFilteredTrades.length !== 1 ? 's' : ''}
-                            </span>
-                        )}
+
+                        {/* R-value input */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">1R =</span>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
+                                <input
+                                    id="r-value-input"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={rValue}
+                                    onChange={e => setRValue(Math.max(1, parseFloat(e.target.value) || 1))}
+                                    className="
+                                        pl-7 pr-3 py-2 w-24 rounded-xl border border-slate-700
+                                        bg-slate-800/60 text-white text-sm font-mono font-semibold
+                                        focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent
+                                        transition-all duration-200
+                                    "
+                                />
+                            </div>
+                            <span className="text-slate-600 text-xs">per trade</span>
+                        </div>
                     </div>
 
-                    {/* Row 1: total PnL, total trades, total fees, profit factor */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Row 1: total PnL, total trades, total commission, win rate, profit factor */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <StatCard
-                            title="Total PnL"
+                            title="Net PnL"
                             value={`$${totalPnL}`}
                             type="pnl"
                             icon={DollarSign}
+                            subtext={`Gross: $${grossPnL}`}
                         />
                         <StatCard
                             title="Total Trades"
@@ -257,11 +312,18 @@ const Dashboard = ({ data, onRefresh }) => {
                             subtext={`${stats_daily.most_active_day_trades || 0} max daily volume`}
                         />
                         <StatCard
-                            title="Total Fees"
+                            title="Total Commission"
                             value={`$${totalFees}`}
                             type="neutral"
                             icon={DollarSign}
-                            subtext="Trading costs"
+                            subtext={`$${commissionPerTrade} / trade`}
+                        />
+                        <StatCard
+                            title="Win Rate"
+                            value={`${winRate}%`}
+                            type="winrate"
+                            icon={Target}
+                            gaugeValue={parseFloat(winRate)}
                         />
                         <StatCard
                             title="Profit Factor"
@@ -339,6 +401,53 @@ const Dashboard = ({ data, onRefresh }) => {
                             subtext="Direction bias"
                         />
                     </div>
+
+                    {/* Row 5: Total R, Avg R/Day, Reward:Risk, Max Drawdown */}
+                    {(() => {
+                        // Calculate R-based metrics inline using the rValue input
+                        const rv = rValue > 0 ? rValue : 80
+                        const totalR = (parseFloat(totalPnL) / rv).toFixed(2)
+                        const avgRPerDay = tradingDays > 0
+                            ? (parseFloat(totalPnL) / rv / tradingDays).toFixed(2)
+                            : '0.00'
+                        const avgWinNum = parseFloat(avgWin)
+                        const avgLossNum = Math.abs(parseFloat(avgLoss))
+                        const rrRatio = avgLossNum > 0
+                            ? `${(avgWinNum / avgLossNum).toFixed(2)} : 1`
+                            : '— : 1'
+                        return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <StatCard
+                                    title="Total R"
+                                    value={`${totalR}R`}
+                                    type="pnl"
+                                    icon={TrendingUp}
+                                    subtext={`1R = $${rv}`}
+                                />
+                                <StatCard
+                                    title="Avg R / Day"
+                                    value={`${avgRPerDay}R`}
+                                    type="pnl"
+                                    icon={Calendar}
+                                    subtext={`${tradingDays} trading day${tradingDays !== 1 ? 's' : ''}`}
+                                />
+                                <StatCard
+                                    title="Reward : Risk"
+                                    value={rrRatio}
+                                    type="neutral"
+                                    icon={Target}
+                                    subtext="Avg win / avg loss"
+                                />
+                                <StatCard
+                                    title="Max Drawdown"
+                                    value={`-$${maxDrawdown}`}
+                                    type="pnl"
+                                    icon={TrendingDown}
+                                    subtext="Peak-to-trough"
+                                />
+                            </div>
+                        )
+                    })()}
 
                     {/* Calendar View */}
                     <div className="w-full">

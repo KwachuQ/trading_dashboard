@@ -26,6 +26,7 @@ from core.database import (
     init_db,
     insert_trades,
     merge_trades,
+    recalculate_commissions,
     update_trade_metadata,
     update_trade_tags,
 )
@@ -42,6 +43,8 @@ from core.trade_statistics_parser import parse_trade_statistics
 async def lifespan(application: FastAPI):
     """Initialise the SQLite database on application start."""
     init_db()
+    # Ensure commissions are populated for any trades that have zero
+    recalculate_commissions()
     yield
 
 
@@ -256,6 +259,33 @@ async def import_trade_statistics(file: UploadFile = File(...)):
         return {"metrics": metrics, "message": "Trade statistics parsed successfully."}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Server Error: {str(exc)}"
+        )
+
+
+@app.post("/recalculate-commissions")
+async def recalc_commissions():
+    """
+    Recalculate commissions for all trades with zero commission.
+
+    Uses per-instrument rates (e.g. $0.52/side for MNQ) and updates
+    net_pnl accordingly.  Returns the full refreshed dataset.
+    """
+    try:
+        result = recalculate_commissions()
+        all_trades = get_all_trades()
+        return {
+            "message": f"Recalculated commissions for {result['updated']} trades.",
+            "updated": result["updated"],
+            "data": _format_trades_for_frontend(all_trades),
+            "stats": compute_stats(all_trades),
+            "charts": prepare_charts_data(all_trades),
+        }
     except Exception as exc:
         import traceback
         traceback.print_exc()

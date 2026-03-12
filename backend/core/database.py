@@ -412,3 +412,65 @@ def delete_all_trades() -> int:
         return cursor.rowcount
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Commission recalculation
+# ---------------------------------------------------------------------------
+
+# Commission per side by base symbol (mirrors sierra_parser.INSTRUMENT_SPECS)
+_COMMISSION_PER_SIDE: Dict[str, float] = {
+    "MNQ": 0.52,
+    "NQ": 1.18,
+    "MES": 0.52,
+    "ES": 1.18,
+    "MCL": 0.52,
+    "CL": 1.18,
+}
+
+
+def recalculate_commissions() -> Dict[str, Any]:
+    """
+    Recalculate commissions for all trades that currently have commission = 0.
+
+    Uses the formula: commission_per_side × 2 (entry + exit) × quantity.
+    Also updates ``net_pnl`` accordingly.
+
+    Returns
+    -------
+    dict
+        Summary with ``updated`` count.
+    """
+    conn = _get_connection()
+    updated = 0
+    try:
+        rows = conn.execute(
+            "SELECT id, base_symbol, quantity, pnl, commission "
+            "FROM trades WHERE commission = 0.0"
+        ).fetchall()
+
+        for row in rows:
+            trade = dict(row)
+            base = trade["base_symbol"]
+            cps = _COMMISSION_PER_SIDE.get(base, 0.0)
+            if cps <= 0.0:
+                continue
+
+            qty = trade.get("quantity", 1) or 1
+            new_commission = round(cps * 2 * qty, 2)
+            new_net_pnl = round(trade["pnl"] - new_commission, 2)
+
+            conn.execute(
+                "UPDATE trades "
+                "SET commission = ?, net_pnl = ?, "
+                "    updated_at = datetime('now') "
+                "WHERE id = ?",
+                (new_commission, new_net_pnl, trade["id"]),
+            )
+            updated += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"updated": updated}

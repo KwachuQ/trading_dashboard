@@ -24,12 +24,30 @@ from typing import Any, BinaryIO, Dict, List, Optional, Union
 # Contract specification registry
 # ---------------------------------------------------------------------------
 INSTRUMENT_SPECS: Dict[str, Dict[str, float]] = {
-    "MNQ": {"point_value": 2.0, "tick_size": 0.25, "tick_value": 0.50},
-    "NQ":  {"point_value": 20.0, "tick_size": 0.25, "tick_value": 5.00},
-    "MES": {"point_value": 5.0, "tick_size": 0.25, "tick_value": 1.25},
-    "ES":  {"point_value": 50.0, "tick_size": 0.25, "tick_value": 12.50},
-    "MCL": {"point_value": 100.0, "tick_size": 0.01, "tick_value": 1.00},
-    "CL":  {"point_value": 1000.0, "tick_size": 0.01, "tick_value": 10.00},
+    "MNQ": {
+        "point_value": 2.0, "tick_size": 0.25, "tick_value": 0.50,
+        "commission_per_side": 0.52,
+    },
+    "NQ": {
+        "point_value": 20.0, "tick_size": 0.25, "tick_value": 5.00,
+        "commission_per_side": 1.18,
+    },
+    "MES": {
+        "point_value": 5.0, "tick_size": 0.25, "tick_value": 1.25,
+        "commission_per_side": 0.52,
+    },
+    "ES": {
+        "point_value": 50.0, "tick_size": 0.25, "tick_value": 12.50,
+        "commission_per_side": 1.18,
+    },
+    "MCL": {
+        "point_value": 100.0, "tick_size": 0.01, "tick_value": 1.00,
+        "commission_per_side": 0.52,
+    },
+    "CL": {
+        "point_value": 1000.0, "tick_size": 0.01, "tick_value": 10.00,
+        "commission_per_side": 1.18,
+    },
 }
 
 
@@ -67,9 +85,12 @@ def _extract_base_symbol(raw_symbol: str) -> str:
 def _get_instrument_spec(raw_symbol: str) -> Dict[str, float]:
     """Return the instrument specification for a given raw Sierra symbol."""
     base = _extract_base_symbol(raw_symbol)
-    return INSTRUMENT_SPECS.get(base, {"point_value": 1.0,
-                                        "tick_size": 0.01,
-                                        "tick_value": 0.01})
+    return INSTRUMENT_SPECS.get(base, {
+        "point_value": 1.0,
+        "tick_size": 0.01,
+        "tick_value": 0.01,
+        "commission_per_side": 0.0,
+    })
 
 
 def _clean_datetime(raw: str) -> str:
@@ -321,11 +342,21 @@ def _build_trade_from_group(
     # F2F P/L from the last fill's column
     f2f_pnl = _clean_numeric(last["f2f_pnl_raw"]) or 0.0
 
-    # Total commission across all fills
-    total_commission = sum(f.get("commission", 0) or 0 for f in group)
-
     # Max open quantity (peak size during the trade)
     max_qty = max(f.get("max_open_quantity", 1) or 1 for f in group)
+
+    # Total commission across all fills (from the file)
+    file_commission = sum(f.get("commission", 0) or 0 for f in group)
+
+    # If the file provides zero commission, calculate from instrument spec.
+    # Commission = commission_per_side × 2 sides (entry + exit) × quantity
+    commission_per_side = spec.get("commission_per_side", 0.0)
+    if file_commission == 0.0 and commission_per_side > 0.0:
+        total_commission = round(
+            commission_per_side * 2 * (max_qty or 1), 2,
+        )
+    else:
+        total_commission = file_commission
 
     # Duration from the last fill
     duration = _parse_duration(last["duration_raw"])
